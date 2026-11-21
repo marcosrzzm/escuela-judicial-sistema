@@ -152,6 +152,7 @@ export function rutaInicial(rol: Rol): string {
 
 /** Guardia de ruta: la URL directa a una pantalla de otro rol cae en Sin permiso. */
 export function rutaPermitida(pathname: string, rol: Rol): boolean {
+  if (pathname === '/') return true
   if (pathname.startsWith('/boletas/')) return rol === 'coordinacion' || rol === 'direccion'
   const area = areaDeRuta(pathname)
   return area === null || area.roles.includes(rol)

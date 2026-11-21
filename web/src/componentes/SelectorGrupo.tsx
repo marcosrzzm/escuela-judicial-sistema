@@ -45,7 +45,7 @@ export function useSeleccionGrupo() {
 
 export function SelectorGrupo({ seleccion }: { seleccion: ReturnType<typeof useSeleccionGrupo> }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 sm:max-w-xl">
+    <div className="grid grid-cols-1 gap-3 sm:max-w-xl sm:grid-cols-2 [&>*]:min-w-0 [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-value]]:truncate">
       <CampoSelect
         etiqueta="Periodo"
         valor={seleccion.periodoId ? String(seleccion.periodoId) : ''}

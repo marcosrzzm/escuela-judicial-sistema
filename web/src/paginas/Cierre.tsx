@@ -437,7 +437,7 @@ export function CierreLote() {
                 ? `Vas a aprobar ${nombre}. Un cierre aprobado no se sobrescribe: si cambia, se genera una versión nueva.`
                 : confirmar === 'autorizacion'
                   ? `Vas a enviar ${nombre} a Dirección, que lo aprueba o lo devuelve con motivo.`
-                  : `Vas a generar las boletas (pendientes de firma institucional) y el lote de ${nombre}. Solo hay un lote por versión de cierre.`
+                  : `Vas a generar las boletas (pendientes de firma institucional) y el lote del ${nombre.replace(/^el /, '')}. Solo hay un lote por versión de cierre.`
             }
             etiquetaAccion={
               confirmar === 'aprobar'

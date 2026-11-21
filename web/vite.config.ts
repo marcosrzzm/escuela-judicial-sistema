@@ -13,7 +13,12 @@ export default defineConfig({
   },
   server: {
     // El proxy deja el Host original: la API compara Origin con Host en cada escritura.
-    proxy: { '/api': `http://localhost:${process.env.API_PUERTO ?? '8080'}` },
+    proxy: {
+      '/api': {
+        target: `http://localhost:${process.env.API_PUERTO ?? '8080'}`,
+        changeOrigin: false,
+      },
+    },
   },
   test: {
     environment: 'node',

@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CampoTexto } from '@/componentes/CampoFormulario'
+import { toast } from 'sonner'
 import { avisar } from '@/lib/avisos'
-import { rutaInicial } from '@/lib/navegacion'
+import { rutaInicial, rutaPermitida } from '@/lib/navegacion'
 import { useSesion } from '@/lib/sesion'
 
 const CUENTAS = [
@@ -31,7 +32,9 @@ export function Entrar() {
   // Mientras se resuelve si ya hay sesión no se decide nada: sin este freno el formulario
   // parpadea y luego desaparece al recargar.
   if (cargando) return null
-  const destino = (ubicacion.state as { desde?: Location } | null)?.desde
+  const desde = (ubicacion.state as { desde?: Location } | null)?.desde
+  // Un destino guardado de otra cuenta no se respeta si este rol no tiene esa pantalla.
+  const destino = desde && sesion && rutaPermitida(desde.pathname, sesion.rol) ? desde : undefined
   if (sesion)
     return (
       <Navigate
@@ -45,7 +48,8 @@ export function Entrar() {
     setEntrando(true)
     const r = await entrar(correo.trim(), clave)
     setEntrando(false)
-    if (!r.ok) avisar.error(r.error)
+    if (r.ok) toast.dismiss()
+    else avisar.error(r.error)
   }
 
   return (
