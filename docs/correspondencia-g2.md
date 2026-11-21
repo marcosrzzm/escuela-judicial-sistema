@@ -1,0 +1,19 @@
+# Correspondencia con G2
+
+Qué cambió entre la compuerta G2 (`E4_G2_Arquitectura.pdf`, 14 de octubre de 2026) y estos archivos, y por qué. Lo que no aparece aquí se conserva igual que en G2: alcance, flujo F01 a F09, las 16 entidades, los seis actores, las reglas RN-01 a RN-12, los criterios CA-01 a CA-14 y las exclusiones de la sección 6.7.
+
+| # | G2 decía | Aquí queda | Razón |
+|---|---|---|---|
+| 1 | UsuarioRol con id, nombre, correo, rol y estado | Tabla `usuario` con esos campos más `contrasena_hash`, y tabla nueva `sesion` | Para que la prueba con dos cuentas sea real hace falta iniciar sesión. No agrega ninguna función al alcance |
+| 2 | El Auxiliar "solo recibe la lista que le corresponde" | Cuenta de solo lectura y tabla `asignacion_auxiliar` (usuario, grupo) | G2 no dice cómo se sabe qué lista le corresponde. Con esta tabla se cumple RN-02 y CA-13 sin crear otra lista |
+| 3 | Dirección "crea autorizaciones", sin entidad propia | Campos `autorizado_por`, `fecha_autorizacion` y `resolucion_direccion` en `decision_evaluacion`, y estado `en_autorizacion` en `cierre` | Las autorizaciones solo existen sobre decisiones y cierres; una tabla aparte duplicaría datos |
+| 4 | Medición de recapturas y tiempo activo (CA-11, CA-12), sin entidad | Tabla nueva `metrica_caso` y pantalla Métricas, con casos del sistema y casos de línea base capturados a mano | No hay línea base (Contexto de continuidad, punto 9). Registrar los dos tipos en el mismo lugar permite compararlos cuando exista |
+| 5 | "Cuándo la regla institucional lo requiera" para autorizar | Coordinación marca caso por caso si un cierre o decisión requiere autorización | La regla institucional no se conoce todavía; inventarla violaría lo acordado en G2 |
+| 6 | Pendientes por "materias pendientes detectadas tarde" | Se abren solos con calificación menor a 8.0 o sin derecho, y se resuelven solos con una aceptada aprobatoria; 8.0 queda configurable | Sin una regla, el pendiente dependería otra vez de que alguien lo recuerde. El 8.0 es supuesto hasta que la Escuela lo confirme |
+| 7 | Estado de la entrega sin lista cerrada | Estados borrador, enviada, aceptada, devuelta y reabierta; cada devolución o reapertura crea la versión siguiente | Hace comprobables RN-04, RN-05 y CA-05 |
+| 8 | Política de datos: reales con autorización o ficticios sin ella | Solo datos ficticios en esta versión | No existe autorización institucional escrita |
+| 9 | Cuentas y catálogos sin pantalla de administración definida | Usuarios, periodos, materias y asignaciones se cargan por semilla | G2 no los incluye en las pantallas por rol; abrir esa administración es crecer el alcance |
+| 10 | Dirección con pantalla de Autorizaciones | Autorizaciones más acceso de lectura a Bitácora | G2 le da a Dirección "ver decisiones y cierres"; la bitácora es la forma de ver quién hizo cada uno |
+| 11 | Nada sobre conectores | Sin tokens de agente, conector ni API pública | El estándar de Sistemas-Elevalia los propone, pero no son parte de G2 ni los pidió la Escuela |
+
+No se quitó nada del alcance de G2.

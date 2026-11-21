@@ -1,0 +1,201 @@
+# Especificación del sistema
+
+Equipo 4 · Escuela Judicial del STJ Jalisco · Coordinación de Posgrados
+Base: compuerta G2 del 14 de octubre de 2026. Lo que cambia respecto a G2 está en `correspondencia-g2.md`.
+
+## 1. Propósito
+
+Que Coordinación reutilice información académica ya validada entre listas, derecho a evaluación, calificaciones, historial y cierre, para reducir la recaptura y el tiempo activo sin sustituir el criterio académico, la firma institucional ni la carga oficial externa.
+
+Indicadores del piloto: campos recapturados por caso (CA-11) y minutos activos de Coordinación por lista o cierre (CA-12). No hay línea base todavía, así que el sistema también permite registrar los casos medidos fuera de él.
+
+## 2. Actores y roles
+
+| Rol | Clave en el código | Quién es | Usa el sistema para |
+|---|---|---|---|
+| Coordinación de Posgrados | `coordinacion` | Usuario principal | Preparar listas, registrar decisiones, revisar entregas, consultar historial, cerrar y generar lotes |
+| Docente | `docente` | Profesor con una o más asignaciones | Capturar, enviar y corregir calificaciones de sus asignaciones |
+| Dirección | `direccion` | Autoridad que autoriza | Resolver decisiones y cierres marcados como "requiere autorización" |
+| Carga externa | `carga_externa` | Área que carga la plataforma oficial | Recibir lotes y registrar carga y discrepancias |
+| Auxiliar | `auxiliar` | Apoyo de Coordinación | Consultar e imprimir la lista de sus grupos |
+| Alumno | (sin cuenta) | Beneficiario | No entra al sistema en esta versión |
+
+Un usuario tiene un solo rol. Las cuentas se crean por semilla en el piloto.
+
+## 3. Entidades y relaciones
+
+Las 16 entidades de G2 más las de soporte que exige el login y la medición (marcadas con *). Tipos pensados para MySQL. Toda tabla tiene `id` entero autoincremental y `creado_en`.
+
+### 3.1 Listas y grupo vigente (J03)
+
+**periodo**: `nombre` (2026-B), `fecha_inicio`, `fecha_fin`, `estado` (abierto, cerrado).
+
+**grupo**: `periodo_id`, `clave` (POS-01), `programa`, `turno`, `estado` (activo, cerrado).
+
+**alumno**: `identificador` (matrícula institucional, única), `nombre`, `estatus` (activo, baja, egresado).
+
+**inscripcion_grupo**: `alumno_id`, `grupo_id`, `estado` (activa, baja), `fecha_alta`, `fecha_baja`, `observacion`. Índice único lógico: un alumno solo puede tener una inscripción `activa` por grupo (RN-01).
+
+**usuario** (UsuarioRol en G2): `nombre`, `correo` (único), `contrasena_hash`, `rol`, `estado` (activo, inactivo).
+
+**asignacion_auxiliar***: `usuario_id`, `grupo_id`. Dice qué listas ve cada auxiliar.
+
+### 3.2 Derecho a evaluación (J05)
+
+**decision_evaluacion**: `alumno_id`, `asignacion_id`, `resultado` (con_derecho, sin_derecho, pendiente_revision, requiere_autorizacion), `motivo` (obligatorio), `referencia_evidencia` (texto libre: dónde está el justificante), `responsable_id`, `fecha`, `autorizado_por`, `fecha_autorizacion`, `resolucion_direccion` (autorizada, rechazada). Cada decisión nueva es un registro nuevo; la vigente es la más reciente del alumno en esa asignación.
+
+### 3.3 Calificaciones (J06)
+
+**materia**: `clave`, `nombre`.
+
+**asignacion_docente**: `grupo_id`, `materia_id`, `docente_id`. Única por grupo y materia.
+
+**entrega_calificaciones**: `asignacion_id`, `version`, `estado` (borrador, enviada, aceptada, devuelta, reabierta), `responsable_id` (quién la capturó), `captura_excepcional` (sí o no, ruta D03), `fecha_envio`, `fecha_revision`, `revisado_por`, `motivo` (de devolución o reapertura). Una fila por versión.
+
+**calificacion**: `entrega_id`, `alumno_id`, `valor` (0.0 a 10.0, un decimal), `estatus` (acreditada, no_acreditada, sin_derecho), `observacion`.
+
+### 3.4 Historial (J07)
+
+**pendiente_academico**: `alumno_id`, `materia_id`, `periodo_origen_id`, `tipo` (reprobada, sin_derecho, manual), `estado` (abierto, resuelto), `resolucion` (texto), `resuelto_en`.
+
+El historial del alumno no es una tabla: se arma con las calificaciones de las entregas aceptadas vigentes y sus pendientes.
+
+### 3.5 Cierre y entrega (J08)
+
+**cierre**: `grupo_id`, `version`, `estado` (preparado, en_autorizacion, aprobado, devuelto, reemplazado), `requiere_autorizacion`, `preparado_por`, `aprobado_por`, `fecha_aprobacion`, `motivo`.
+
+**documento_academico**: `alumno_id`, `cierre_id`, `tipo` (boleta), `version` (la del cierre), `estado` (preparado_pendiente_firma).
+
+**lote_entrega**: `cierre_id`, `version`, `estado` (generado, recibido, cargado, con_discrepancias), `generado_por`, `fecha_generacion`.
+
+**registro_carga_externa**: `lote_id`, `fecha_recepcion`, `fecha_carga`, `estado` (recibido, cargado, con_discrepancias), `discrepancias` (texto), `registrado_por`.
+
+**bitacora_cambio**: `entidad`, `registro_id`, `accion`, `usuario_id`, `fecha`, `motivo`, `antes` (JSON), `despues` (JSON). Solo se inserta, nunca se edita ni se borra.
+
+### 3.6 Soporte*
+
+**sesion***: `usuario_id`, `token_hash`, `expira_en`, `ultimo_uso`. Cookie httpOnly, Secure, SameSite=Strict.
+
+**metrica_caso***: `tipo` (lista, cierre), `grupo_id`, `origen` (sistema, linea_base), `campos_recapturados`, `segundos_activos`, `nota`, `registrado_por`, `fecha`.
+
+### 3.7 Relaciones
+
+- Un periodo tiene varios grupos.
+- Alumno y grupo se relacionan por inscripcion_grupo.
+- Grupo + materia + docente forman una asignacion_docente.
+- Una asignación tiene varias entregas (una por versión); cada entrega tiene una calificación por alumno.
+- El historial del alumno sale de las calificaciones aceptadas vigentes y de pendiente_academico.
+- Un cierre pertenece a un grupo; de él salen documentos y lotes.
+- registro_carga_externa depende de un lote y nunca modifica el cierre.
+- Todo cambio sensible genera una fila en bitacora_cambio.
+
+### 3.8 Estados y transiciones
+
+| Entidad | Transición | Quién | Requisito |
+|---|---|---|---|
+| Entrega | borrador → enviada | Docente dueño | Todas las calificaciones capturadas entre 0 y 10 |
+| Entrega | enviada → aceptada | Coordinación | |
+| Entrega | enviada → devuelta | Coordinación | Motivo obligatorio. Se crea la versión siguiente en borrador con las mismas calificaciones |
+| Entrega | aceptada → reabierta | Coordinación | Motivo obligatorio y que el grupo no tenga cierre aprobado vigente. Se crea la versión siguiente en borrador |
+| Decisión | (nueva) | Coordinación | Motivo obligatorio |
+| Decisión | requiere_autorizacion → autorizada o rechazada | Dirección | Motivo obligatorio |
+| Cierre | (nuevo) preparado | Coordinación | Todas las asignaciones del grupo con entrega aceptada vigente, o excepción con motivo |
+| Cierre | preparado → aprobado | Coordinación | Solo si `requiere_autorizacion` es no |
+| Cierre | preparado → en_autorizacion | Coordinación | Si `requiere_autorizacion` es sí |
+| Cierre | en_autorizacion → aprobado o devuelto | Dirección | Motivo obligatorio si devuelve |
+| Cierre | aprobado → reemplazado | Coordinación | Al preparar una versión nueva con motivo |
+| Lote | (nuevo) generado | Coordinación | Cierre aprobado; uno por versión de cierre |
+| Lote | generado → recibido → cargado o con_discrepancias | Carga externa | Discrepancias con texto obligatorio |
+
+Pendientes automáticos: al aceptar una entrega, cada calificación menor a 8.0 (mínimo aprobatorio supuesto, ver sección 8) o con decisión `sin_derecho` abre un pendiente. Si después una entrega aceptada de la misma materia da 8.0 o más, el pendiente se resuelve solo con la referencia de esa entrega.
+
+## 4. Matriz de permisos
+
+V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" quiere decir de sus asignaciones o grupos. La matriz vive en código en `api/permisos.php` y se valida en el servidor.
+
+| Entidad | Coordinación | Docente | Dirección | Carga externa | Auxiliar |
+|---|---|---|---|---|---|
+| periodo | V | V | V | V | V |
+| grupo | V | V propios | V | V | V propios |
+| alumno | V C | V de sus grupos | V | · | V de sus grupos |
+| inscripcion_grupo | V C M (alta y baja) | V de sus grupos | V | · | V de sus grupos |
+| usuario | V | · | · | · | · |
+| materia | V | V propias | V | V | · |
+| asignacion_docente | V | V propias | V | · | · |
+| decision_evaluacion | V C | V propias | V M (solo las que requieren autorización) | · | · |
+| entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | V | · | · |
+| calificacion | V | V C M propias en borrador | V | · | · |
+| pendiente_academico | V C M | · | V | · | · |
+| cierre | V C M | · | V M (solo en autorización) | V aprobados | · |
+| documento_academico | V C | · | V | · | · |
+| lote_entrega | V C | · | V | V | · |
+| registro_carga_externa | V | · | V | V C M | · |
+| bitacora_cambio | V | · | V | · | · |
+| metrica_caso | V C | · | V | · | · |
+
+Nadie puede: firmar documentos, escribir en la plataforma oficial, borrar registros, editar una entrega aceptada sin reabrir, editar un cierre aprobado, ni ver datos fuera de su rol o asignación. Una petición fuera de la matriz responde 403 y no revela si el registro existe.
+
+## 5. Flujo core paso a paso
+
+**F01. Seleccionar periodo y grupo.** Coordinación entra a Grupos y listas, elige 2026-B y POS-01. Ve la lista vigente (inscripciones activas). Puede dar de alta o baja una inscripción con observación. Cada cambio va a la bitácora.
+
+**F02. Reutilizar la lista.** Sin capturar nada, la misma lista aparece al docente en su asignación y al auxiliar en Mis listas. Ambos pueden imprimirla. Ningún nombre ni identificador se vuelve a escribir.
+
+**F03. Derecho a evaluación.** En Derecho a evaluación, Coordinación elige la asignación y para cada alumno registra resultado y motivo (y referencia de evidencia si la hay). Si elige "requiere autorización", el caso aparece a Dirección en Autorizaciones, donde lo autoriza o rechaza con motivo.
+
+**F04. Entrega del docente.** El docente entra a Mis asignaciones, abre la suya y captura calificaciones. Puede guardar borrador o enviar. Al enviar, la entrega queda con versión, fecha y responsable, y ya no la puede editar. Los alumnos marcados sin derecho aparecen bloqueados con estatus "sin derecho". Ruta excepcional: si un docente no puede usar el sistema, Coordinación captura por él marcando "captura excepcional" con motivo; eso cuenta como recaptura.
+
+**F05. Revisión.** En Revisión de calificaciones, Coordinación ve las entregas enviadas por docente y materia. Acepta, o devuelve con motivo. Al devolver se crea la versión siguiente en borrador y el docente ve el motivo.
+
+**F06. Historial y pendientes.** Al aceptar, las calificaciones pasan al historial del alumno y se abren o resuelven pendientes (sección 3.8). En Historial del alumno, Coordinación busca por nombre o matrícula y ve todas sus materias por periodo y sus pendientes, sin abrir archivos.
+
+**F07. Cierre.** En Cierre y lote, Coordinación prepara el cierre del grupo. El sistema verifica que todas las asignaciones tengan entrega aceptada; si falta una, solo se puede continuar registrando la excepción con motivo. Coordinación lo aprueba, o lo envía a Dirección si marcó que requiere autorización.
+
+**F08. Documentos y lote.** Con el cierre aprobado se generan las boletas (vista imprimible, "pendiente de firma institucional") y el lote con periodo, grupo, versión de cierre, responsable y fecha, descargable en CSV.
+
+**F09. Traspaso externo.** Carga externa entra a Lotes recibidos, confirma recepción, registra la carga y, si hay, las discrepancias. No puede editar el cierre ni las calificaciones.
+
+## 6. Pantallas por rol
+
+| Rol | Pantallas (menú lateral) |
+|---|---|
+| Coordinación | Inicio · Grupos y listas · Derecho a evaluación · Revisión de calificaciones · Historial del alumno · Cierre y lote · Métricas · Bitácora |
+| Docente | Mis asignaciones (entrega de calificaciones dentro) |
+| Dirección | Autorizaciones · Bitácora |
+| Carga externa | Lotes recibidos |
+| Auxiliar | Mis listas |
+
+Inicio de Coordinación muestra: entregas por revisar, decisiones esperando a Dirección, grupos listos para cierre y lotes con discrepancias, cada uno con un clic a su pantalla.
+
+Tareas frecuentes y clics máximos (regla de tres clics): revisar una entrega (2), devolver con motivo (3), consultar el historial de un alumno (2), enviar calificaciones como docente (3), registrar recepción de un lote (2).
+
+## 7. Criterios de aceptación con dos cuentas
+
+Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la acción y la cuenta B (o la misma A después) comprueba el resultado. Todos están automatizados en `pruebas/aceptacion.mjs` contra la API y se pueden repetir a mano en la interfaz.
+
+| CA | Cuenta A hace | Cuenta B comprueba | Resultado esperado |
+|---|---|---|---|
+| CA-01 | Coordinación consulta la lista vigente de POS-01 | Docente A abre su asignación y Auxiliar abre Mis listas | Los dos ven los mismos alumnos con el mismo identificador, sin haber capturado nada. La métrica de recaptura de la lista queda en 0 |
+| CA-02 | Docente A pide la asignación de POS-02 por URL o API | Docente B consulta su entrega | A recibe 403 y no puede guardar nada; la entrega de B no cambió |
+| CA-03 | Docente A envía su entrega | Coordinación abre Revisión | La entrega muestra versión 1, fecha de envío, responsable Docente A y estado enviada |
+| CA-04 | Coordinación intenta devolver sin motivo | Docente A abre su asignación | El servidor responde 422; la entrega sigue enviada y el docente no ve cambios |
+| CA-05 | Coordinación acepta la v1 y luego la reabre con motivo | Docente A abre su asignación | La v1 sigue guardada como reabierta; el docente edita una v2 en borrador. Un intento de editar la v1 responde 409 |
+| CA-06 | Coordinación acepta entregas de 2026-A y 2026-B del mismo alumno | Coordinación abre Historial del alumno | Ve las materias de los dos periodos y sus pendientes en una sola pantalla |
+| CA-07 | Coordinación intenta preparar el cierre de POS-02 sin entrega aceptada | Coordinación lo intenta de nuevo con excepción y motivo | Sin excepción responde 422; con excepción el cierre se crea y la excepción queda en bitácora |
+| CA-08 | Coordinación genera el lote de un cierre aprobado | Carga externa abre Lotes recibidos | Ve periodo, grupo, versión de cierre, responsable y fecha del lote |
+| CA-09 | Carga externa registra recepción, carga y una discrepancia | Coordinación abre Cierre y lote; Carga externa intenta modificar el cierre por API | Coordinación ve el traspaso y la discrepancia; el intento de Carga externa responde 403 y el cierre no cambia |
+| CA-10 | Coordinación devuelve una entrega con motivo | Dirección abre Bitácora | Aparece la acción con usuario, fecha, motivo y valores antes y después |
+| CA-11 | Coordinación hace una captura excepcional por Docente B | Coordinación abre Métricas | El caso del grupo suma los campos recapturados; un caso de línea base registrado a mano aparece junto para comparar |
+| CA-12 | Coordinación trabaja en la lista y en el cierre de POS-01 | Coordinación abre Métricas | Se ven los minutos activos de ese caso; el tiempo sin actividad de más de 2 minutos no cuenta |
+| CA-13 | Auxiliar pide la lista de POS-02; Docente B pide el historial de un alumno | Coordinación revisa la bitácora | Las dos peticiones responden 403 |
+| CA-14 | Cualquier rol busca una acción para firmar o enviar a la plataforma oficial | Revisión de la API (`api/rutas.php`) | No existe ninguna ruta ni botón que firme o escriba fuera del sistema; los documentos dicen "pendiente de firma institucional" |
+
+## 8. Supuestos que hay que confirmar con la Escuela
+
+Vienen de los pendientes P04, P10, P11, P12 y P15 del expediente. Mientras no se confirmen, el sistema usa estos valores y los muestra como configurables:
+
+1. Calificación mínima aprobatoria de 8.0 en posgrado (`api/config.php`, `CALIFICACION_MINIMA`).
+2. Qué registro es el oficial cuando dos fuentes difieren (P04). En el sistema, la entrega aceptada vigente.
+3. Cuándo un cierre requiere autorización de Dirección. Por ahora lo marca Coordinación caso por caso.
+4. Formato de la boleta y del lote que pide el área de carga externa. Por ahora una vista imprimible y un CSV con matrícula, nombre, materia, calificación y estatus.
+5. Uso de datos reales. Prohibido hasta tener autorización escrita; el piloto usa la semilla ficticia.
