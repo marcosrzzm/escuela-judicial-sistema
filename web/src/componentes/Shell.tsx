@@ -113,14 +113,16 @@ function ContenidoNavegacion({
                 to={area.ruta}
                 onClick={alSeleccionar}
                 aria-current={activa ? 'page' : undefined}
-                title={colapsado ? area.etiqueta : undefined}
+                title={area.etiqueta}
                 className={cn(CLASES_ENLACE, activa ? CLASES_ACTIVO : CLASES_INACTIVO)}
               >
                 <Icono strokeWidth={2.4} aria-hidden="true" className="size-5 shrink-0" />
                 {colapsado ? (
                   <span className="sr-only">{area.etiqueta}</span>
                 ) : (
-                  <span className="truncate md:text-[10px] lg:text-sm">{area.etiqueta}</span>
+                  <span className="truncate md:sr-only lg:not-sr-only lg:text-sm">
+                    {area.etiqueta}
+                  </span>
                 )}
               </Link>
             </div>
@@ -259,7 +261,7 @@ export function Shell() {
   const menuUsuario = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button type="button" variant="outline" size="sm" aria-label={`Cuenta de ${sesion.nombre}`}>
           <UserRound strokeWidth={2.4} aria-hidden="true" />
           <span className="hidden max-w-32 truncate md:inline">{sesion.nombre}</span>
         </Button>
@@ -365,6 +367,7 @@ export function Shell() {
               type="button"
               variant="outline"
               size="sm"
+              aria-label="Buscar en el sistema"
               onClick={() => window.dispatchEvent(new CustomEvent('abrir-buscador'))}
             >
               <Search strokeWidth={2.4} aria-hidden="true" />

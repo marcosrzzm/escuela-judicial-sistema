@@ -446,6 +446,7 @@ export function CierreLote() {
                   ? 'Enviar a Dirección'
                   : 'Generar boletas y lote'
             }
+            peligroso={false}
             ocupado={aprobar.ocupado || aDireccion.ocupado || lote.ocupado}
             alConfirmar={() => {
               if (!vigente) return

@@ -323,8 +323,17 @@ export function Revision() {
   )
 
   const columnas: ColumnaTabla<Asignacion>[] = [
-    { clave: 'grupo', encabezado: 'Grupo' },
-    { clave: 'materia', encabezado: 'Materia' },
+    { clave: 'grupo', encabezado: 'Grupo', ocultarEnMovil: true },
+    {
+      clave: 'materia',
+      encabezado: 'Materia',
+      render: (a) => (
+        <>
+          {a.materia}
+          <span className="block text-xs text-ink-3 sm:hidden">{a.grupo}</span>
+        </>
+      ),
+    },
     { clave: 'docente', encabezado: 'Docente', ocultarEnMovil: true },
     {
       clave: 'version',
@@ -470,6 +479,7 @@ export function Revision() {
             : ''
         }
         etiquetaAccion="Aceptar entrega"
+        peligroso={false}
         ocupado={aceptar.ocupado}
         alConfirmar={() => accion?.fila.entrega && aceptar.ejecutar(accion.fila.entrega.id)}
       />

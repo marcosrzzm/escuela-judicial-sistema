@@ -103,6 +103,7 @@ function DialogoAlta({
         </div>
         {modo === 'existente' ? (
           <form
+            key="existente"
             id="form-alta"
             className="flex flex-col gap-4"
             onSubmit={(e) => {
@@ -131,6 +132,7 @@ function DialogoAlta({
           </form>
         ) : (
           <form
+            key="nuevo"
             id="form-alta"
             className="flex flex-col gap-4"
             onSubmit={handleSubmit((v) => alta.ejecutar(v))}
@@ -190,8 +192,17 @@ export function Grupos() {
   const vigentes = datos?.alumnos.filter((a) => a.estado === 'activa') ?? []
 
   const columnas: ColumnaTabla<AlumnoLista>[] = [
-    { clave: 'identificador', encabezado: 'Matrícula', className: 'num' },
-    { clave: 'nombre', encabezado: 'Alumno' },
+    { clave: 'identificador', encabezado: 'Matrícula', className: 'num', ocultarEnMovil: true },
+    {
+      clave: 'nombre',
+      encabezado: 'Alumno',
+      render: (a) => (
+        <>
+          {a.nombre}
+          <span className="block text-xs text-ink-3 num sm:hidden">{a.identificador}</span>
+        </>
+      ),
+    },
     { clave: 'estado', encabezado: 'Estado', render: (a) => <InsigniaEstado estado={a.estado} /> },
     {
       clave: 'fecha_alta',

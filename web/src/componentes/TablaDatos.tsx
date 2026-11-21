@@ -223,7 +223,9 @@ export function TablaDatos<T>({
                     </TableHead>
                   )
                 })}
-                {accionesFila ? <TableHead className="text-right">Acciones</TableHead> : null}
+                {accionesFila ? (
+                  <TableHead className="text-right whitespace-normal">Acciones</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,6 +266,7 @@ export function TablaDatos<T>({
                       <TableCell
                         key={columna.clave}
                         className={cn(
+                          'whitespace-normal',
                           claseAlineacion(columna),
                           columna.numerica && 'num',
                           columna.ocultarEnMovil && 'hidden sm:table-cell',
@@ -277,7 +280,7 @@ export function TablaDatos<T>({
                     ))}
                     {accionesFila ? (
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1 opacity-0 transition-opacity duration-ui group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                        <div className="flex flex-col items-end gap-1 sm:flex-row sm:flex-wrap sm:justify-end">
                           {accionesFila(fila)}
                         </div>
                       </TableCell>

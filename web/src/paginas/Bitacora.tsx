@@ -14,6 +14,7 @@ import { Pagina } from '@/componentes/Pagina'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
 import type { EventoBitacora, PaginaBitacora } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
+import { cambios, etiquetaAccion, etiquetaEntidad } from '@/lib/bitacora'
 import { fechaHora } from '@/lib/formulario'
 
 export function Bitacora() {
@@ -41,7 +42,7 @@ export function Bitacora() {
     {
       clave: 'accion',
       encabezado: 'Acción',
-      render: (e) => `${e.accion.replace(/_/g, ' ')} · ${e.entidad.replace(/_/g, ' ')}`,
+      render: (e) => `${etiquetaAccion(e.accion)} · ${etiquetaEntidad(e.entidad)}`,
     },
     { clave: 'motivo', encabezado: 'Motivo', ocultarEnMovil: true },
   ]
@@ -106,7 +107,7 @@ export function Bitacora() {
             <>
               <SheetHeader>
                 <SheetTitle>
-                  {evento.accion.replace(/_/g, ' ')} · {evento.entidad.replace(/_/g, ' ')}
+                  {etiquetaAccion(evento.accion)} · {etiquetaEntidad(evento.entidad)}
                 </SheetTitle>
                 <SheetDescription>
                   {evento.usuario ?? 'Sistema'} · {fechaHora(evento.fecha)}
@@ -120,23 +121,23 @@ export function Bitacora() {
                 ) : null}
                 <div>
                   <h3 className="mb-1 text-xs font-semibold tracking-[0.06em] text-ink-3 uppercase">
-                    Antes
+                    Cambios
                   </h3>
-                  <pre className="overflow-x-auto rounded-lg bg-paper-2 p-3 text-xs">
-                    {evento.antes
-                      ? JSON.stringify(evento.antes, null, 2)
-                      : 'Sin valores anteriores'}
-                  </pre>
-                </div>
-                <div>
-                  <h3 className="mb-1 text-xs font-semibold tracking-[0.06em] text-ink-3 uppercase">
-                    Después
-                  </h3>
-                  <pre className="overflow-x-auto rounded-lg bg-paper-2 p-3 text-xs">
-                    {evento.despues
-                      ? JSON.stringify(evento.despues, null, 2)
-                      : 'Sin valores posteriores'}
-                  </pre>
+                  {cambios(evento.antes, evento.despues).length === 0 ? (
+                    <p className="text-ink-3">Este movimiento no guardó valores.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-1.5">
+                      {cambios(evento.antes, evento.despues).map((c) => (
+                        <li key={c.campo} className="rounded-lg bg-paper-2 px-3 py-2">
+                          <span className="font-medium text-ink capitalize">{c.campo}:</span>{' '}
+                          {c.antes !== null ? (
+                            <span className="text-ink-3">{c.antes} → </span>
+                          ) : null}
+                          <span className="text-ink">{c.despues ?? 'se quitó'}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             </>

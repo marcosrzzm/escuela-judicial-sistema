@@ -209,6 +209,7 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
         titulo="Enviar calificaciones"
         descripcion={`Vas a enviar las calificaciones de ${asignacion.materia} en ${asignacion.grupo} (${filas.filter((f) => !f.bloqueado).length} alumnos con derecho). Después de enviar ya no se editan; si Coordinación las devuelve, recibes una versión nueva.`}
         etiquetaAccion="Enviar a Coordinación"
+        peligroso={false}
         ocupado={enviar.ocupado}
         alConfirmar={() => enviar.ejecutar(aItems(valores, filas))}
       />

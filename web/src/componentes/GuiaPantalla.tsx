@@ -6,7 +6,7 @@
  * un botón que abre un panel vacío es peor que no tenerlo.
  */
 import { CircleHelp, ChevronRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -19,42 +19,22 @@ import {
 } from '@/components/ui/sheet'
 import { guiaDeRuta } from '@/guia'
 
-const PREFIJO_CLAVE = 'elevalia.guia.'
-
-function yaVista(clave: string): boolean {
-  try {
-    return localStorage.getItem(`${PREFIJO_CLAVE}${clave}`) === 'vista'
-  } catch {
-    return false
-  }
-}
-
-function marcarVista(clave: string): void {
-  try {
-    localStorage.setItem(`${PREFIJO_CLAVE}${clave}`, 'vista')
-  } catch {
-    // Modo privado o cuota llena: la guía simplemente no se recuerda entre visitas.
-  }
-}
-
 export function GuiaPantalla() {
   const ubicacion = useLocation()
   const guia = guiaDeRuta(ubicacion.pathname)
   const [abierta, setAbierta] = useState(false)
 
-  useEffect(() => {
-    if (!guia) return
-    setAbierta(!yaVista(ubicacion.pathname))
-    marcarVista(ubicacion.pathname)
-    // Solo debe reaccionar a un cambio de ruta, no a que `guia` cambie de referencia.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ubicacion.pathname])
-
   if (!guia) return null
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setAbierta(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-label="Guía de esta pantalla"
+        onClick={() => setAbierta(true)}
+      >
         <CircleHelp strokeWidth={2.4} aria-hidden="true" />
         <span className="hidden sm:inline">Guía</span>
       </Button>

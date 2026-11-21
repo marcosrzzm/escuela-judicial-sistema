@@ -17,6 +17,7 @@ export function DialogoConfirmacion({
   etiquetaAccion,
   ocupado,
   alConfirmar,
+  peligroso = true,
 }: {
   abierto: boolean
   alCambiarApertura: (abierto: boolean) => void
@@ -25,6 +26,8 @@ export function DialogoConfirmacion({
   etiquetaAccion: string
   ocupado: boolean
   alConfirmar: () => void
+  /** Rojo solo para lo que destruye; aprobar, aceptar y enviar van en primario. */
+  peligroso?: boolean
 }) {
   return (
     <Dialog open={abierto} onOpenChange={alCambiarApertura}>
@@ -42,7 +45,12 @@ export function DialogoConfirmacion({
           >
             Cancelar
           </Button>
-          <Button type="button" variant="destructive" disabled={ocupado} onClick={alConfirmar}>
+          <Button
+            type="button"
+            variant={peligroso ? 'destructive' : 'default'}
+            disabled={ocupado}
+            onClick={alConfirmar}
+          >
             {ocupado ? 'Guardando…' : etiquetaAccion}
           </Button>
         </DialogFooter>
