@@ -1,0 +1,53 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Lee la configuración de un archivo fuera de la carpeta pública.
+ * Orden de búsqueda: variable EJ_CONFIG, el .env de la raíz del repo (local) y
+ * ej-config.env un nivel arriba de la carpeta pública (hosting).
+ * Nunca se versiona ni se copia a publicar/.
+ */
+function cargar_config(): array
+{
+    $candidatos = array_filter([
+        getenv('EJ_CONFIG') ?: null,
+        dirname(__DIR__) . '/.env',
+        dirname(__DIR__, 2) . '/ej-config.env',
+    ]);
+    $valores = [];
+    foreach ($candidatos as $ruta) {
+        if (!is_file($ruta)) {
+            continue;
+        }
+        foreach (file($ruta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
+            $linea = trim($linea);
+            if ($linea === '' || $linea[0] === '#' || !str_contains($linea, '=')) {
+                continue;
+            }
+            [$clave, $valor] = explode('=', $linea, 2);
+            $valores[trim($clave)] = trim($valor);
+        }
+        break;
+    }
+    if ($valores === []) {
+        error_log('Sin archivo de configuracion');
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'El servicio no está disponible en este momento.']);
+        exit;
+    }
+
+    return [
+        'db_host' => $valores['DB_HOST'] ?? '127.0.0.1',
+        'db_puerto' => (int) ($valores['MYSQL_PUERTO'] ?? 3306),
+        'db_nombre' => $valores['DB_NOMBRE'] ?? '',
+        'db_usuario' => $valores['DB_USUARIO'] ?? '',
+        'db_contrasena' => $valores['DB_CONTRASENA'] ?? '',
+        'entorno' => $valores['ENTORNO'] ?? 'produccion',
+        'cookie' => 'ej_sesion',
+        'horas_sesion' => 8,
+        // Supuesto por confirmar con la Escuela (especificación, sección 8).
+        'calificacion_minima' => 8.0,
+    ];
+}
