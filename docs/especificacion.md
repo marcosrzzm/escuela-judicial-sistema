@@ -199,3 +199,20 @@ Vienen de los pendientes P04, P10, P11, P12 y P15 del expediente. Mientras no se
 3. Cuándo un cierre requiere autorización de Dirección. Por ahora lo marca Coordinación caso por caso.
 4. Formato de la boleta y del lote que pide el área de carga externa. Por ahora una vista imprimible y un CSV con matrícula, nombre, materia, calificación y estatus.
 5. Uso de datos reales. Prohibido hasta tener autorización escrita; el piloto usa la semilla ficticia.
+
+## 9. Decisiones de construcción del MVP
+
+Cosas que la construcción necesitó y que la especificación no decía. Cada una está también en `correspondencia-g2.md` con su razón.
+
+1. **Columnas de apoyo.** `entrega_calificaciones.motivo_captura` (motivo de la captura excepcional); `decision_evaluacion.motivo_direccion` (motivo de Dirección al autorizar o rechazar); `cierre.excepcion` y `cierre.motivo_excepcion` (excepción al preparar sin todas las entregas aceptadas); en `cierre`, `motivo` guarda el motivo de devolución de Dirección o de reemplazo por una versión nueva.
+2. **Efecto de una decisión.** Solo `sin_derecho`, o `requiere_autorizacion` ya rechazada por Dirección, bloquea al alumno en la captura (queda con estatus `sin_derecho` y sin valor). Los otros resultados no bloquean: el sistema guarda la decisión, no decide por nadie.
+3. **Acciones de permiso.** `ver`, `crear` y `modificar`, más `aceptar`, `devolver` y `reabrir` en `entrega_calificaciones`, que son el paréntesis de la celda de Coordinación. Los alcances "propios" y "solo captura excepcional" se comprueban en cada endpoint.
+4. **Accesos denegados.** Cada respuesta 403 queda en `bitacora_cambio` con `accion = acceso_denegado`, la ruta y el usuario. La bitácora es inmutable también en la base (disparadores que rechazan UPDATE y DELETE).
+5. **Intentos de inicio de sesión.** Tabla de soporte `intento_login`: a los 5 intentos fallidos de un correo en 15 minutos, el inicio de sesión responde 429.
+6. **Métricas.** Hay un solo caso del sistema por tipo (lista o cierre) y grupo. El navegador mide el tiempo activo (pestaña visible y actividad de las últimas 2 minutos) y manda un latido cada 30 s; el servidor acepta máximo 30 s por latido. Los campos recapturados del caso `cierre` son los valores que Coordinación capturó por un docente (captura excepcional); alta de alumnos y bajas no cuentan como recaptura. Un caso de línea base lleva grupo opcional, campos recapturados y minutos activos.
+7. **Pendientes manuales.** Coordinación puede agregar un pendiente de tipo `manual` (con motivo) y resolver cualquier pendiente abierto con un texto; las dos cosas van a la bitácora.
+8. **Cierre.** Solo hay un cierre en curso (preparado o en autorización) por grupo. Preparar una versión nueva con un cierre aprobado exige motivo y deja el anterior como reemplazado. Al aprobar se vuelve a comprobar que las entregas sigan aceptadas (salvo excepción registrada). Documentos y lote se generan en una sola acción de Coordinación, porque Dirección aprueba pero no genera documentos.
+9. **Traspaso.** Un registro de carga externa por lote: la recepción lo crea (`recibido`) y la carga lo cierra como `cargado` o `con_discrepancias` (texto obligatorio). Después de cerrado no se vuelve a editar.
+10. **Inicio por rol.** Solo Coordinación tiene Inicio con contadores. Los demás roles entran directo a su primera pantalla del menú (sección 6).
+11. **Reinicio de la semilla.** Solo en local, con `scripts/reiniciar-semilla.sh`; no existe endpoint de reinicio.
+

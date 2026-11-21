@@ -15,5 +15,15 @@ Qué cambió entre la compuerta G2 (`E4_G2_Arquitectura.pdf`, 14 de octubre de 2
 | 9 | Cuentas y catálogos sin pantalla de administración definida | Usuarios, periodos, materias y asignaciones se cargan por semilla | G2 no los incluye en las pantallas por rol; abrir esa administración es crecer el alcance |
 | 10 | Dirección con pantalla de Autorizaciones | Autorizaciones más acceso de lectura a Bitácora | G2 le da a Dirección "ver decisiones y cierres"; la bitácora es la forma de ver quién hizo cada uno |
 | 11 | Nada sobre conectores | Sin tokens de agente, conector ni API pública | El estándar de Sistemas-Elevalia los propone, pero no son parte de G2 ni los pidió la Escuela |
+| 12 | Sin columnas de apoyo para motivos | `motivo_captura`, `motivo_direccion`, `cierre.excepcion`, `cierre.motivo_excepcion` | G2 exige motivo en la captura excepcional, la resolución de Dirección y la excepción de cierre, pero no dice dónde se guarda |
+| 13 | Derecho a evaluación sin efecto definido en la captura | Solo `sin_derecho` o una autorización rechazada bloquea al alumno en la captura | Sin una regla, la captura no sabe a quién bloquear; se toma la lectura mínima y no se decide por la Escuela |
+| 14 | Permisos por rol y entidad, sin acciones | Acciones ver, crear, modificar, y aceptar, devolver y reabrir para la entrega | La celda de Coordinación en la matriz las nombra; hace falta una por cada una para validarlas en el servidor |
+| 15 | Bitácora de cambios sensibles | También registra accesos denegados, y es inmutable en la base | CA-13 pide revisar la bitácora tras dos 403; RN-11 pide que no se pueda alterar |
+| 16 | Sin control de intentos de inicio de sesión | Tabla `intento_login`, 5 fallos en 15 minutos dan 429 | Regla del estándar de Sistemas-Elevalia para contraseñas; no agrega función al alcance |
+| 17 | CA-11 y CA-12 sin definición de cómo se mide | Un caso del sistema por tipo y grupo; latidos de 30 s con máximo 30 s aceptados; recaptura igual a valores de capturas excepcionales | Hace comprobables los dos indicadores del piloto sin inventar una línea base |
+| 18 | Pendiente académico con "detectado tarde" | Coordinación puede crear pendientes manuales y resolver con texto | La matriz da C y M sobre `pendiente_academico`; sin estas dos acciones no tendrían pantalla |
+| 19 | Cierre y lote como pasos del flujo | Un cierre en curso por grupo, reemplazo con motivo, reverificación al aprobar, y documentos y lote en una sola acción de Coordinación | Dirección aprueba pero la matriz no le da crear documentos; hace cumplir RN-09 y RN-10 |
+| 20 | Registro de carga externa con recepción, carga y discrepancias | Un registro por lote, que se cierra una sola vez | Evita historiales ambiguos en el traspaso; si la Escuela necesita reintentos se abre una decisión nueva |
+| 21 | Pantallas de Inicio no definidas para todos los roles | Inicio con contadores solo para Coordinación; los demás entran a su primera pantalla | La sección 6 solo define Inicio de Coordinación |
 
 No se quitó nada del alcance de G2.
