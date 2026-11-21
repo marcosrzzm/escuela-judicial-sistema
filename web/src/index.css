@@ -1,0 +1,264 @@
+/* Tokens del sistema. Para adaptar a un cliente se cambia SOLO brand y nav;
+   las superficies de datos (paper, ink, line, card, estados) van neutras a
+   propósito: son las que hacen legible cualquier tabla, sin importar la marca. */
+@import '@fontsource/poppins/latin-400.css';
+@import '@fontsource/poppins/latin-500.css';
+@import '@fontsource/poppins/latin-600.css';
+@import '@fontsource/poppins/latin-700.css';
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Poppins', system-ui, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
+  --color-paper-4: var(--paper-4);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
+
+  --color-nav: var(--nav);
+  --color-nav-2: var(--nav-2);
+  --color-nav-3: var(--nav-3);
+  --color-nav-txt: var(--nav-txt);
+  --color-nav-on: var(--nav-on);
+
+  --color-exito: var(--exito);
+  --color-exito-soft: var(--exito-soft);
+  --color-alerta: var(--alerta);
+  --color-alerta-soft: var(--alerta-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-proceso: var(--proceso);
+  --color-proceso-soft: var(--proceso-soft);
+  --color-neutro: var(--neutro);
+  --color-neutro-soft: var(--neutro-soft);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* Sombras de dos capas, teñidas del color de marca (no gris puro): así la
+     sombra pertenece a la interfaz y no parece un recorte de otra plantilla. */
+  --shadow-sm: 0 1px 2px rgba(37, 38, 39, 0.06), 0 1px 3px rgba(37, 38, 39, 0.05);
+  --shadow-md: 0 2px 6px rgba(37, 38, 39, 0.06), 0 8px 20px rgba(37, 38, 39, 0.08);
+  --shadow-lg: 0 4px 14px rgba(37, 38, 39, 0.08), 0 20px 45px rgba(37, 38, 39, 0.12);
+
+  /* Una sola duración para toda la interfaz: nadie decide "esto se anima más
+     rápido" caso por caso. Genera la utilidad `duration-ui`. */
+  --duration-ui: 200ms;
+}
+
+:root {
+  --paper: #faf8f4;
+  --paper-2: #f5f1e9;
+  --paper-3: #f2ece2;
+  --paper-4: #e8e2d8;
+  --card: #ffffff;
+  --line: #e8e2d8;
+  --line-strong: #d3c9b6;
+  --ink: #252627;
+  --ink-2: #414243;
+  --ink-3: #6b6c6d;
+  --ink-4: #9a9a98;
+
+  /* Marca de ejemplo: al adaptar para un cliente, solo estas dos rampas cambian. */
+  --brand: #8a6f37;
+  --brand-soft: #f2ece2;
+  --brand-deep: #6a5528;
+
+  --nav: #242526;
+  --nav-2: #2e2f30;
+  --nav-3: #3d3e3f;
+  --nav-txt: #d6d1c4;
+  --nav-on: #ffffff;
+
+  --exito: #0f7b4f;
+  --exito-soft: #d9f3e5;
+  --alerta: #8a5a00;
+  --alerta-soft: #fcebc7;
+  --error: #b42318;
+  --error-soft: #fbe0dd;
+  --proceso: #1a5cff;
+  --proceso-soft: #dde7ff;
+  --neutro: #5a6270;
+  --neutro-soft: #e7e9ec;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --popover: var(--card);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--nav-on);
+  --secondary: var(--paper-3);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-2);
+  --muted-foreground: var(--ink-3);
+  --accent: var(--brand-soft);
+  --accent-foreground: var(--brand-deep);
+  --destructive: var(--error);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--brand);
+
+  color-scheme: light;
+  font-family: 'Poppins', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Modo oscuro: las dos polaridades completas. Se activa con la clase `dark`
+   en <html>; el toggle vive en el menú de usuario y empieza APAGADO. */
+.dark {
+  --paper: #12161c;
+  --paper-2: #171c23;
+  --paper-3: #1e242c;
+  --paper-4: #262e38;
+  --card: #1a1f27;
+  --line: #2a313b;
+  --line-strong: #3a434f;
+  --ink: #edeff2;
+  --ink-2: #c7ccd3;
+  --ink-3: #939ba6;
+  --ink-4: #6c7480;
+
+  --brand: #c5ab72;
+  --brand-soft: #3a3326;
+  --brand-deep: #e3d3a8;
+
+  --nav: #0b0f14;
+  --nav-2: #12171e;
+  --nav-3: #1b222b;
+  --nav-txt: #b7c0ca;
+  --nav-on: #f5f7fa;
+
+  --exito: #3fcb8a;
+  --exito-soft: #123626;
+  --alerta: #e3b23c;
+  --alerta-soft: #3a2e10;
+  --error: #f0837a;
+  --error-soft: #3a1917;
+  --proceso: #7da3ff;
+  --proceso-soft: #1b2a4d;
+  --neutro: #9aa2ae;
+  --neutro-soft: #262b33;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply m-0 min-w-80 bg-paper text-ink;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  a {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  /* Foco visible siempre, con separación del elemento: se navega con teclado
+     más de lo que se cree, y un anillo pegado al borde se confunde con el borde. */
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Quien pidió menos movimiento, no recibe movimiento. Sin excepciones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Cifras, folios y fechas: ancho de dígito fijo para poder comparar columnas. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Densidad de tabla: toggle del menú de usuario, persistido en localStorage.
+   Cómoda es la de por defecto; compacta reduce el alto de fila para revisar
+   listas largas sin tanto scroll. */
+[data-densidad='compacta'] [data-slot='table-cell'],
+[data-densidad='compacta'] [data-slot='table-head'] {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+/* Al imprimir (p. ej. un detalle de pedido) solo el contenido, nunca el chrome. */
+@media print {
+  aside,
+  header,
+  nav,
+  [data-no-imprimir] {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

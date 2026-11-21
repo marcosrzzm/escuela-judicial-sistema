@@ -1,0 +1,263 @@
+import { Printer, Save, Send } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  aItems,
+  CapturaCalificaciones,
+  hayErrores,
+  type FilaCaptura,
+} from '@/componentes/CapturaCalificaciones'
+import { DialogoConfirmacion } from '@/componentes/DialogoConfirmacion'
+import { InsigniaEstado } from '@/componentes/Estados'
+import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
+import { Pagina } from '@/componentes/Pagina'
+import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
+import {
+  abrirEntrega,
+  enviarEntrega,
+  guardarBorrador,
+  type Asignacion,
+  type DetalleAsignacion,
+  type ItemCalificacion,
+} from '@/lib/api'
+import { useAccion, useDatos } from '@/lib/datos'
+import { fechaHora } from '@/lib/formulario'
+
+export function MisAsignaciones() {
+  const navegar = useNavigate()
+  const lista = useDatos<{ filas: Asignacion[] }>('/asignaciones')
+  const columnas: ColumnaTabla<Asignacion>[] = [
+    { clave: 'materia', encabezado: 'Materia' },
+    { clave: 'grupo', encabezado: 'Grupo', render: (a) => `${a.grupo} · ${a.periodo}` },
+    { clave: 'alumnos_activos', encabezado: 'Alumnos', numerica: true, ocultarEnMovil: true },
+    {
+      clave: 'estado',
+      encabezado: 'Mi entrega',
+      render: (a) => (
+        <span className="flex items-center gap-2">
+          <InsigniaEstado estado={a.entrega?.estado ?? 'sin_entrega'} />
+          {a.entrega ? <span className="text-xs text-ink-3 num">v{a.entrega.version}</span> : null}
+        </span>
+      ),
+    },
+  ]
+  return (
+    <Pagina
+      titulo="Mis asignaciones"
+      descripcion="Tus materias del periodo. Abre una para ver su lista y capturar las calificaciones."
+    >
+      {lista.error ? <ErrorDatos error={lista.error} reintentar={lista.reintentar} /> : null}
+      <TablaDatos
+        columnas={columnas}
+        filas={lista.datos?.filas ?? []}
+        claveFila={(a) => a.id}
+        descripcion="Mis asignaciones del periodo abierto"
+        cargando={lista.cargando}
+        onFilaClic={(a) => void navegar(`/asignaciones/${a.id}`)}
+        accionesFila={(a) => (
+          <Button asChild size="sm">
+            <Link to={`/asignaciones/${a.id}`}>Abrir</Link>
+          </Button>
+        )}
+        vacio={{
+          variante: 'vacio',
+          titulo: 'No tienes asignaciones en este periodo',
+          descripcion:
+            'Las asignaciones las carga la Coordinación de Posgrados. Si esperabas una, avísale.',
+        }}
+      />
+    </Pagina>
+  )
+}
+
+function Captura({ detalle }: { detalle: DetalleAsignacion }) {
+  const { entrega, asignacion } = detalle
+  const filas: FilaCaptura[] = detalle.alumnos.map((a) => ({
+    alumno_id: a.alumno_id,
+    identificador: a.identificador,
+    nombre: a.nombre,
+    bloqueado: a.bloqueado,
+  }))
+  const [valores, setValores] = useState<Record<number, string>>(() =>
+    Object.fromEntries(
+      (entrega?.calificaciones ?? [])
+        .filter((c) => c.valor !== null)
+        .map((c) => [c.alumno_id, String(c.valor)]),
+    ),
+  )
+  const [intento, setIntento] = useState(false)
+  const [confirmar, setConfirmar] = useState(false)
+  const editable =
+    asignacion.periodo_estado === 'abierto' && (entrega === null || entrega.estado === 'borrador')
+
+  /** El borrador se crea en el primer guardado: abrir la pantalla nunca escribe nada. */
+  async function asegurarEntrega(): Promise<number | null> {
+    if (entrega) return entrega.id
+    const r = await abrirEntrega(asignacion.id)
+    return r.ok ? r.datos.id : null
+  }
+  const guardar = useAccion(
+    async (items: ItemCalificacion[]) => {
+      const id = await asegurarEntrega()
+      return id === null
+        ? {
+            ok: false as const,
+            codigo: 0,
+            error: 'No se pudo abrir la captura de esta asignación. Vuelve a intentarlo.',
+          }
+        : guardarBorrador(id, items)
+    },
+    { exito: () => `Borrador de ${asignacion.materia} (${asignacion.grupo}) guardado` },
+  )
+  const enviar = useAccion(
+    async (items: ItemCalificacion[]) => {
+      const id = await asegurarEntrega()
+      return id === null
+        ? {
+            ok: false as const,
+            codigo: 0,
+            error: 'No se pudo abrir la captura de esta asignación. Vuelve a intentarlo.',
+          }
+        : enviarEntrega(id, items)
+    },
+    {
+      exito: () =>
+        `Calificaciones de ${asignacion.materia} (${asignacion.grupo}) enviadas a Coordinación`,
+      alExito: () => setConfirmar(false),
+    },
+  )
+
+  const mensajeEstado =
+    entrega?.estado === 'borrador' && detalle.versiones.length > 1
+      ? detalle.versiones.find((v) => v.estado === 'devuelta' || v.estado === 'reabierta')
+      : undefined
+
+  return (
+    <>
+      {mensajeEstado ? (
+        <Alert role="status">
+          <AlertTitle>
+            {mensajeEstado.estado === 'devuelta'
+              ? 'Coordinación devolvió tu entrega'
+              : 'Coordinación reabrió tu entrega'}
+          </AlertTitle>
+          <AlertDescription>
+            <p>Motivo: {mensajeEstado.motivo}</p>
+            <p>Corrige lo que haga falta en esta versión {entrega?.version} y vuelve a enviarla.</p>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {entrega && entrega.estado !== 'borrador' ? (
+        <Alert role="status">
+          <AlertTitle>
+            La versión {entrega.version} está {entrega.estado}
+          </AlertTitle>
+          <AlertDescription>
+            Ya no se edita.{' '}
+            {entrega.estado === 'enviada'
+              ? 'Coordinación la está revisando; si la devuelve, aquí te aparece una versión nueva para corregir.'
+              : ''}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <CapturaCalificaciones
+        filas={filas}
+        valores={valores}
+        alCambiar={(id, v) => setValores((p) => ({ ...p, [id]: v }))}
+        deshabilitado={!editable || guardar.ocupado || enviar.ocupado}
+        mostrarErrores={intento}
+      />
+
+      {editable ? (
+        <div className="flex flex-wrap gap-2" data-no-imprimir>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={guardar.ocupado}
+            onClick={() => {
+              setIntento(false)
+              if (hayErrores(valores, filas, false)) {
+                setIntento(true)
+                return
+              }
+              guardar.ejecutar(aItems(valores, filas))
+            }}
+          >
+            <Save strokeWidth={2.4} aria-hidden="true" />
+            {guardar.ocupado ? 'Guardando…' : 'Guardar borrador'}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setIntento(true)
+              if (!hayErrores(valores, filas, true)) setConfirmar(true)
+            }}
+          >
+            <Send strokeWidth={2.4} aria-hidden="true" />
+            Enviar calificaciones
+          </Button>
+        </div>
+      ) : null}
+
+      <DialogoConfirmacion
+        abierto={confirmar}
+        alCambiarApertura={setConfirmar}
+        titulo="Enviar calificaciones"
+        descripcion={`Vas a enviar las calificaciones de ${asignacion.materia} en ${asignacion.grupo} (${filas.filter((f) => !f.bloqueado).length} alumnos con derecho). Después de enviar ya no se editan; si Coordinación las devuelve, recibes una versión nueva.`}
+        etiquetaAccion="Enviar a Coordinación"
+        ocupado={enviar.ocupado}
+        alConfirmar={() => enviar.ejecutar(aItems(valores, filas))}
+      />
+
+      {detalle.versiones.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold text-ink">Versiones de la entrega</h2>
+          <ul className="flex flex-col gap-1.5 rounded-lg border border-line bg-card p-4 text-sm">
+            {detalle.versiones.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-ink num">Versión {v.version}</span>
+                <InsigniaEstado estado={v.estado} />
+                <span className="text-ink-3">
+                  {v.responsable}
+                  {v.fecha_envio ? ` · enviada ${fechaHora(v.fecha_envio)}` : ''}
+                  {v.motivo ? ` · ${v.motivo}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  )
+}
+
+export function Asignacion() {
+  const { id } = useParams()
+  const d = useDatos<DetalleAsignacion>(`/asignaciones/${Number(id)}`)
+  return (
+    <Pagina
+      titulo={
+        d.datos ? `${d.datos.asignacion.materia} · ${d.datos.asignacion.grupo}` : 'Asignación'
+      }
+      descripcion={
+        d.datos
+          ? `Periodo ${d.datos.asignacion.periodo}. La lista es la misma que ve Coordinación: no hay nada que recapturar.`
+          : undefined
+      }
+      acciones={
+        <Button type="button" variant="outline" onClick={() => window.print()} disabled={!d.datos}>
+          <Printer strokeWidth={2.4} aria-hidden="true" />
+          Imprimir lista
+        </Button>
+      }
+    >
+      {d.error ? <ErrorDatos error={d.error} reintentar={d.reintentar} /> : null}
+      {d.cargando ? <Cargando /> : null}
+      {d.datos ? <Captura key={d.datos.entrega?.id ?? 'sin-entrega'} detalle={d.datos} /> : null}
+    </Pagina>
+  )
+}

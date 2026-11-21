@@ -1,0 +1,12 @@
+node_modules
+dist
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+seguridad/
+!seguridad/README.md
+!seguridad/reportes/.gitkeep
+config.php
+*.sql
+!sql/*.sql
