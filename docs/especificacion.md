@@ -333,7 +333,7 @@ Reglas:
 1. El docente ve el resultado del derecho a evaluación de sus alumnos (con derecho, sin derecho, pendiente) para saber a quién no calificar, pero nunca el motivo ni la evidencia. Sí ve el motivo cuando le devuelven su propia entrega.
 2. El docente no ve historial, pendientes ni calificaciones de otras materias o grupos, y el buscador solo le encuentra alumnos de sus grupos.
 3. El Auxiliar ve nombre y matrícula de los grupos que tiene asignados, nada más.
-4. Dirección ve todo lo que ve Coordinación, en modo consulta, y autoriza los casos que se le envían. No crea ni modifica nada más, ni usa "ver como". De Usuarios y roles solo consulta.
+4. Dirección ve todo lo que ve Coordinación, en modo consulta, y autoriza los casos que se le envían. No crea ni modifica nada más, salvo mandar mensajes uno a uno (12.8), ni usa "ver como". De Usuarios y roles solo consulta.
 5. Carga externa ve únicamente los lotes de cierres aprobados, con los campos del lote; no ve motivos ni historiales.
 6. Los correos de las cuentas los ven Coordinación y Dirección (decisión del 23 de noviembre de 2026: "Dirección ve todo"). Ningún otro rol los ve.
 7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
@@ -413,4 +413,123 @@ Decisión del 23 de noviembre de 2026 (Marcos): el alumno tiene cuenta. Esto rea
 - Solo ve calificaciones de entregas aceptadas vigentes: un borrador o una entrega enviada no existe para él.
 - Nunca ve a otro alumno ni una lista, ni motivos ni evidencias, ni bitácora, ni correos, ni lotes ni el detalle interno de un cierre; de un docente solo el nombre.
 - "Ver como" funciona sobre una cuenta de Alumno.
-- Ninguna ruta de escritura sirve a esta cuenta salvo cambiar su contraseña, su tema, cerrar sus sesiones y marcar sus avisos.
+- Ninguna ruta de escritura sirve a esta cuenta salvo cambiar su contraseña, su tema, cerrar sus sesiones y marcar sus avisos, y las del aula (sección 12): entregar tareas, responder exámenes, publicar en foros y mandar mensajes.
+
+## 12. Aula: plataforma de clases
+
+Decisión del 23 de noviembre de 2026 (Marcos: "Integra absolutamente todo lo que propones"): además del control escolar, el sistema funciona como plataforma de clases al estilo de Canvas, con tareas, contenido del curso, mensajes, foros, calificación por actividades, rúbricas y exámenes en línea. También se deja listo para el uso diario: correo de verdad, respaldos automáticos y aviso de privacidad. Siguen fuera, por la exclusión de G2: asistencia completa, comunicaciones masivas (correos o anuncios a grupos completos), firma, conexión con la plataforma oficial y cualquier decisión académica automática.
+
+### 12.1 El curso
+
+- Un curso es una asignación (grupo, materia y docente). No se crea otra entidad: el aula cuelga de `asignacion_docente`.
+- Quién entra: el docente de la asignación (todo lo de su curso), los alumnos con inscripción activa en el grupo (lo publicado), Coordinación (todo, de todos los cursos) y Dirección (todo, solo consulta). Auxiliar y Carga externa no entran al aula.
+- Pestañas del curso: Inicio, Módulos, Tareas, Exámenes, Foros, Calificaciones y, para el docente, Lista y Derecho a evaluación (las que ya existen). El alumno ve Inicio, Módulos, Tareas, Exámenes, Foros y Calificaciones.
+- La tarjeta del Tablero lleva al curso: al docente su asignación, al alumno cada una de sus materias.
+
+### 12.2 Módulos y contenido
+
+- El docente organiza el curso en módulos ordenados (por ejemplo "Unidad 1"). Cada módulo tiene elementos ordenados: página de texto, archivo, enlace externo, tarea, examen o foro.
+- Cada módulo y elemento tiene "publicado" o "borrador". El alumno solo ve lo publicado.
+- Nada se borra: un módulo o elemento se oculta o se archiva, y el cambio queda en bitácora.
+- Tablas: `modulo` (asignacion_id, titulo, orden, publicado) y `elemento_modulo` (modulo_id, tipo, titulo, texto, archivo_id, url, actividad_id, orden, publicado).
+
+### 12.3 Archivos
+
+- Tabla `archivo` (nombre original, nombre interno al azar, tipo, tamaño, huella sha256, subido_por, fecha).
+- Se guardan fuera de la carpeta pública (`ej-archivos/` un nivel arriba en el hosting; `seguridad/archivos/` en local). Nunca hay un enlace directo: se descargan por la API, que revisa el permiso en cada descarga, con `Content-Disposition: attachment` y `X-Content-Type-Options: nosniff`.
+- Máximo 10 MB por archivo. Tipos permitidos: PDF, Word, Excel, PowerPoint, texto, JPG y PNG. El servidor revisa extensión y contenido.
+- Quién puede ver un archivo: el mismo que puede ver el elemento, la entrega o el mensaje que lo trae.
+
+### 12.4 Tareas
+
+- Una tarea es una `actividad` de tipo tarea: título, instrucciones, categoría, puntos, fecha de entrega, si acepta entregas tarde, rúbrica opcional y estado publicado.
+- El alumno entrega texto, un archivo o los dos. Puede volver a entregar mientras no venza la fecha (o después, si la tarea acepta tarde, marcada "tarde"); cada envío es una versión nueva y la anterior se conserva (`entrega_tarea`).
+- El docente califica con puntos y comentario, o con la rúbrica. Cada cambio de calificación es una fila nueva en `calificacion_actividad`; la vigente es la última.
+- El alumno ve sus puntos y el comentario solo cuando el docente publica las calificaciones de esa actividad. Antes, para él la tarea dice "entregada".
+- El alumno nunca ve las entregas de otro alumno.
+
+### 12.5 Rúbricas
+
+- El docente crea rúbricas en su curso: criterios con descripción y niveles (nombre y puntos).
+- Al calificar con rúbrica el docente elige un nivel por criterio; los puntos se suman solos y se guarda el detalle por criterio.
+- El alumno ve la rúbrica desde que la tarea se publica, y su detalle cuando se publican las calificaciones.
+
+### 12.6 Exámenes en línea
+
+- Un examen es una `actividad` de tipo examen con preguntas (`pregunta`): opción múltiple, verdadero o falso, o respuesta abierta, cada una con sus puntos.
+- Se configura: disponible desde y hasta, tiempo límite en minutos e intentos permitidos (uno por omisión).
+- El servidor controla el tiempo: el intento guarda la hora de inicio y no acepta respuestas después del límite; al vencer se envía con lo que haya.
+- Las preguntas cerradas se califican solas; las abiertas las califica el docente. La respuesta correcta nunca viaja al navegador del alumno.
+- Intentos en `intento_examen` (actividad, alumno, número, inicio, envío, respuestas, puntos automáticos, puntos finales). El puntaje pasa a `calificacion_actividad` y se publica igual que una tarea.
+
+### 12.7 Calificación por actividades
+
+- El docente define categorías con peso en su curso (por ejemplo Tareas 40 %, Examen 60 %). Los pesos deben sumar 100.
+- Calificación calculada de 0 a 10: por categoría, el porcentaje de puntos obtenidos de las actividades calificadas; luego el promedio ponderado. Una actividad vencida sin entrega cuenta como cero; una entregada sin calificar no cuenta.
+- La calculada es una ayuda, no una decisión: en su entrega de calificaciones en borrador el docente tiene "Usar calificación calculada", que llena los valores; él los revisa, puede cambiarlos y envía como siempre. El flujo de entrega, aceptación y cierre no cambia (RN-04 a RN-06).
+- El alumno ve su calculada al momento, con la leyenda "calculada con lo publicado, no es la calificación oficial". La oficial es la aceptada por Coordinación.
+
+### 12.8 Mensajes
+
+- Conversaciones de una persona a otra dentro del sistema, con texto y un archivo opcional. No sale ningún correo; el destinatario recibe un aviso "Tienes un mensaje nuevo" sin el texto.
+- Quién escribe a quién: docente con los alumnos de sus cursos y con Coordinación; alumno con los docentes de sus cursos y con Coordinación; Coordinación y Dirección con cualquier cuenta activa. Alumno con alumno no.
+- Un mensaje va a una sola persona. No hay envío a grupos completos (exclusión de comunicaciones masivas).
+- Nada se borra. Coordinación puede consultar una conversación solo si alguien la reporta; el reporte y la consulta quedan en bitácora.
+
+### 12.9 Foros
+
+- Un foro es una `actividad` de tipo foro dentro del curso, calificable o no. Participan el docente, los alumnos inscritos y Coordinación.
+- Publicaciones con respuesta en hilo (`publicacion_foro`: actividad, autor, texto, responde_a, fecha). No se editan ni se borran.
+- El docente del curso o Coordinación pueden ocultar una publicación con motivo; queda en bitácora y el autor ve "oculta por moderación".
+- Una respuesta a tu publicación genera un aviso.
+
+### 12.10 Avisos, calendario y Por hacer
+
+- Un aviso dentro del sistema que dispara una acción del curso (por ejemplo publicar una tarea) no es una comunicación masiva: no sale por correo ni es un anuncio libre. Siguen excluidos los correos y los anuncios a grupos completos.
+- Avisos nuevos: tarea o examen publicado (alumnos del curso), entrega recibida (docente), calificaciones publicadas (alumno, sin el valor), mensaje nuevo, respuesta en foro.
+- El calendario agrega las fechas de entrega de tareas y la ventana de cada examen, para el docente y los alumnos del curso.
+- Por hacer: el alumno ve tareas por entregar y exámenes abiertos; el docente, entregas por calificar.
+
+### 12.11 Uso diario
+
+- Correo: el envío por Resend ya existe (10.6). Para que salga de verdad falta la llave de Resend y un remitente verificado; mientras no estén, la pantalla sigue mostrando el enlace.
+- Respaldos automáticos: una tarea diaria del hosting corre `scripts/respaldo-diario.php`, que guarda la base comprimida fuera de la carpeta pública (`ej-respaldos/`) y conserva los últimos 14 días. Coordinación ve en Administración la fecha y el tamaño del último respaldo, sin descargarlo.
+- Aviso de privacidad: página pública `/privacidad` y enlace en la pantalla de entrada. Es un borrador para que lo revise la Escuela: los datos del responsable dicen "Sin información todavía" hasta que la Escuela los dé.
+- Dominio propio: lo decide la Escuela; el sistema funciona igual en cualquier dominio.
+
+### 12.12 Permisos del aula
+
+| Entidad | Coordinación | Docente | Dirección | Carga externa | Auxiliar | Alumno |
+|---|---|---|---|---|---|---|
+| modulo y elemento_modulo | V C M | V C M propios | V | · | · | V publicados de sus cursos |
+| archivo | V C | V C de sus cursos | V | · | · | V de lo que puede ver; C en sus entregas y mensajes |
+| actividad (tarea, examen, foro), categoria, rubrica | V C M | V C M propias | V | · | · | V publicadas de sus cursos |
+| entrega_tarea | V | V de sus cursos | V | · | · | V C propias |
+| calificacion_actividad | V M | V C M de sus cursos | V | · | · | V propias publicadas |
+| intento_examen | V | V M (abiertas) de sus cursos | V | · | · | V C propios |
+| mensaje | V C (y reportados) | V C propios | V C propios | · | · | V C propios |
+| publicacion_foro | V C M (ocultar) | V C M (ocultar) de sus cursos | V | · | · | V C en sus cursos |
+
+"Ver como" sigue siendo solo lectura también en el aula: ninguna escritura del aula funciona en esa vista. Un rol personalizado no obtiene en el aula más que su rol base.
+
+Esto cambia la última regla de 11.8: el alumno ahora también escribe para entregar tareas, responder exámenes, publicar en foros y mandar mensajes, siempre solo a su nombre.
+
+### 12.13 Criterios de aceptación del aula
+
+| CA | Cuenta A hace | Cuenta B comprueba | Resultado esperado |
+|---|---|---|---|
+| CA-32 | Docente A crea un módulo con una página en borrador y otra publicada | Alumno abre Módulos | Solo ve la publicada; pedir la de borrador por API responde 404 |
+| CA-33 | Docente A sube un PDF a un módulo publicado | Alumno lo descarga; Docente B y Auxiliar lo piden por API | El alumno lo recibe como descarga; los otros dos reciben 403; un archivo .php o de más de 10 MB responde 422 |
+| CA-34 | Alumno entrega una tarea con archivo y vuelve a entregar | Docente A abre la tarea | Ve las dos versiones y califica la última; el alumno ve "entregada" sin puntos hasta que se publica |
+| CA-35 | Otro alumno pide la entrega del primero por API | Revisión | 403 |
+| CA-36 | Docente A califica con rúbrica y publica | Alumno abre Calificaciones | Ve puntos, nivel por criterio y comentario; Bitácora guarda quién calificó |
+| CA-37 | Alumno inicia un examen de 1 minuto y responde después del límite | Revisión del intento | Las respuestas tardías se rechazan; el intento se cierra con lo guardado; la respuesta correcta nunca aparece en lo que recibe el alumno |
+| CA-38 | Docente A define categorías que no suman 100 | Revisión | 422; con 100 se guarda y la calculada aparece |
+| CA-39 | Docente A usa "Usar calificación calculada" en su entrega en borrador y envía | Coordinación abre Revisión | La entrega lleva los valores calculados como versión normal; el historial no cambia hasta que Coordinación acepta |
+| CA-40 | Alumno manda un mensaje a Docente A y otro a un alumno | Docente A abre Mensajes y Avisos | Recibe el mensaje y un aviso sin el texto; el mensaje a otro alumno responde 403 |
+| CA-41 | Docente A intenta mandar un mensaje a un alumno de POS-02 | Revisión | 403 |
+| CA-42 | Alumno publica en el foro; Docente A oculta la publicación con motivo | Otro alumno abre el foro; Coordinación abre Bitácora | Ve "oculta por moderación"; la bitácora muestra quién ocultó y por qué |
+| CA-43 | Auxiliar y Carga externa piden módulos, tareas o foros por API | Revisión | 403 |
+| CA-44 | Dirección intenta crear un módulo o calificar | Revisión | 403; puede consultar todo y mandar un mensaje |
+| CA-46 | Coordinación en "Ver como" Alumno intenta entregar una tarea y publicar en el foro; la cuenta de Alumno intenta crear un módulo o calificar | Revisión | Las cuatro peticiones responden 403 y nada cambia |
+| CA-45 | Sin sesión se piden un archivo, un mensaje y un foro | Revisión | 401 sin datos |

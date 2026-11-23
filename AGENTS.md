@@ -22,6 +22,8 @@ Flujo que sí se construye (detalle en `docs/especificacion.md`, sección 5):
 8. Del cierre aprobado salen los documentos y el lote de entrega, con versión.
 9. El área de carga externa registra recepción, carga y discrepancias. La plataforma oficial se opera fuera del sistema.
 
+Desde el 23 de noviembre de 2026 el sistema también es plataforma de clases (aula tipo Canvas: módulos, tareas, exámenes, foros y mensajes), según `docs/especificacion.md`, sección 12; el flujo de abajo sigue siendo el núcleo y el aula alimenta la captura sin reemplazarla.
+
 Inicio del flujo: grupo y periodo con lista vigente. Fin: cierre aprobado, documentos y lote preparados, traspaso registrado.
 
 ## 2. Lo que NO se construye
@@ -32,9 +34,9 @@ Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nu
 - Captura completa de asistencia y justificantes. Solo se guarda el resultado del derecho a evaluación.
 - Integración directa o API con la plataforma oficial. Nada se escribe en ella.
 - Firma digital o cualquier sustitución de la firma institucional. Los documentos salen "pendientes de firma".
-- Portal de alumnos abierto: desde el 23 de noviembre de 2026 el alumno tiene una cuenta propia, creada solo por Coordinación, con acceso únicamente a sus datos (especificación, 11.8; correspondencia, fila 32). Nada más de un portal se abre: sin captura del alumno, sin mensajes.
+- Portal de alumnos abierto: desde el 23 de noviembre de 2026 el alumno tiene una cuenta propia, creada solo por Coordinación, con acceso únicamente a sus datos (especificación, 11.8; correspondencia, fila 32). Desde la misma fecha el aula (especificación, sección 12) le permite entregar tareas, responder exámenes, publicar en foros del curso y mandar mensajes uno a uno.
 - Migración del histórico de la Escuela.
-- Comunicaciones masivas (correos, avisos a alumnos). Los correos uno a uno de invitación y restablecimiento sí existen (especificación, 10.6).
+- Comunicaciones masivas (correos o anuncios a grupos completos). Los correos uno a uno de invitación y restablecimiento sí existen (especificación, 10.6).
 - Cualquier automatización que tome una decisión académica en lugar de una persona.
 - Tokens de agente, conectores o API pública.
 - Datos reales de alumnos o docentes. Todo es ficticio mientras no exista autorización escrita de la Escuela.
@@ -126,7 +128,7 @@ Requisitos locales: Node 22 o superior, PHP 8.3 con `pdo_mysql`, binarios de MyS
 | Reiniciar la base con la semilla | `scripts/dev.sh --reiniciar` |
 | Revisar tipos y lint | `cd web && npm run lint && npx tsc -b` |
 | Pruebas del frontend | `cd web && npm test` |
-| Criterios de aceptación CA-01 a CA-31 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
+| Criterios de aceptación CA-01 a CA-46 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
 | Compilar | `cd web && npm run build` |
 | Armar la carpeta para el hosting | `scripts/publicar.sh` |
 | Primera cuenta de Coordinación en una base sin semilla | `php scripts/crear-coordinacion.php` |

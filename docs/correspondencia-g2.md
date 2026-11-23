@@ -40,4 +40,7 @@ Qué cambió entre la compuerta G2 (`E4_G2_Arquitectura.pdf`, 14 de octubre de 2
 | 32 | Exclusión 6.7: portal para alumnos; el alumno no tiene cuenta | Rol del sistema `alumno` con cuenta creada solo por Coordinación y acceso solo a sus propios datos (especificación, 11.8) | Decisión del 23 de noviembre de 2026 (Marcos): el alumno debe poder consultar su situación sin pedirla a Coordinación |
 | 33 | Dirección sin ver los correos de las cuentas | Dirección ve los correos (especificación, 10.7, regla 6) | Decisión del 23 de noviembre de 2026 (Marcos): "Dirección ve todo" |
 
-No se quitó nada del alcance de G2. Las filas 22 a 33 agregan alcance por decisión registrada; las otras exclusiones de la sección 6.7 siguen igual (la fila 32 reabre solo el portal para alumnos).
+| 34 | Exclusión 6.7: portal de alumnos sin captura ni mensajes; sistema limitado a la continuidad del dato | Aula tipo Canvas: módulos, archivos, tareas, rúbricas, exámenes, calificación por actividades, mensajes uno a uno y foros por curso (especificación, sección 12) | Decisión del 23 de noviembre de 2026 (Marcos: "Integra absolutamente todo lo que propones") |
+| 35 | Sin operación diaria definida | Respaldos automáticos diarios, aviso de privacidad y correo real cuando exista la llave (especificación, 12.11) | Sin esto el sistema no puede usarse con datos reales |
+
+No se quitó nada del alcance de G2. Las filas 22 a 35 agregan alcance por decisión registrada; las otras exclusiones de la sección 6.7 siguen igual (la fila 32 reabre solo el portal para alumnos).
