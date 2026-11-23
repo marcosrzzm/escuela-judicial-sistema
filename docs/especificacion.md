@@ -136,6 +136,8 @@ V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" q
 | bitacora_cambio | V | · | V | · | · | · |
 | metrica_caso | V C | · | V | · | · | · |
 
+Las entidades del aula (módulos, archivos, actividades, entregas, intentos, mensajes y foros) están en la misma matriz de `api/permisos.php`; su detalle por rol es la tabla de 12.12.
+
 Dirección ve todo lo que ve Coordinación en modo consulta (sección 10.7) y solo escribe para autorizar las decisiones y los cierres que se le envían.
 
 El Alumno solo existe con una cuenta creada por Coordinación (11.8) y nunca ve datos de otra persona. Los roles personalizados no pueden tener base Alumno y tienen como máximo los permisos de su rol base en esta matriz, nunca la administración de usuarios ni de roles, ni la vista como otro usuario (sección 10.2).
@@ -337,7 +339,7 @@ Reglas:
 5. Carga externa ve únicamente los lotes de cierres aprobados, con los campos del lote; no ve motivos ni historiales.
 6. Los correos de las cuentas los ven Coordinación y Dirección (decisión del 23 de noviembre de 2026: "Dirección ve todo"). Ningún otro rol los ve.
 7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
-8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven solo en `seguridad/`, fuera de git y del hosting.
+8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven fuera de git y de la carpeta pública: en local, `seguridad/respaldos/`; en el hosting, `ej-respaldos/` un nivel arriba de ella (12.11).
 9. Los roles personalizados heredan estos límites de su rol base; ninguno puede ver más que su base.
 10. El Alumno ve solo sus propios datos: sus calificaciones de entregas aceptadas, el resultado (nunca el motivo ni la evidencia) de su derecho a evaluación, su boleta y sus pendientes. Nunca ve a otro alumno, listas, bitácora, correos, lotes ni los detalles internos de un cierre.
 
@@ -465,7 +467,7 @@ Decisión del 23 de noviembre de 2026 (Marcos: "Integra absolutamente todo lo qu
 ### 12.7 Calificación por actividades
 
 - El docente define categorías con peso en su curso (por ejemplo Tareas 40 %, Examen 60 %). Los pesos deben sumar 100.
-- Calificación calculada de 0 a 10: por categoría, el porcentaje de puntos obtenidos de las actividades calificadas; luego el promedio ponderado. Una actividad vencida sin entrega cuenta como cero; una entregada sin calificar no cuenta.
+- Calificación calculada de 0 a 10: por categoría, el porcentaje de puntos obtenidos de las actividades calificadas; luego el promedio ponderado entre las categorías que ya tienen algo calificado (una categoría sin nada calificado no pesa todavía). Una actividad vencida sin entrega cuenta como cero; una entregada sin calificar no cuenta.
 - La calculada es una ayuda, no una decisión: en su entrega de calificaciones en borrador el docente tiene "Usar calificación calculada", que llena los valores; él los revisa, puede cambiarlos y envía como siempre. El flujo de entrega, aceptación y cierre no cambia (RN-04 a RN-06).
 - El alumno ve su calculada al momento, con la leyenda "calculada con lo publicado, no es la calificación oficial". La oficial es la aceptada por Coordinación.
 
@@ -475,6 +477,7 @@ Decisión del 23 de noviembre de 2026 (Marcos: "Integra absolutamente todo lo qu
 - Quién escribe a quién: docente con los alumnos de sus cursos y con Coordinación; alumno con los docentes de sus cursos y con Coordinación; Coordinación y Dirección con cualquier cuenta activa. Alumno con alumno no.
 - Un mensaje va a una sola persona. No hay envío a grupos completos (exclusión de comunicaciones masivas).
 - Nada se borra. Coordinación puede consultar una conversación solo si alguien la reporta; el reporte y la consulta quedan en bitácora.
+- Solo se escribe a cuentas que pueden leer mensajes (Auxiliar y Carga externa no). Dentro de una conversación ya abierta se puede responder aunque la regla de arriba no permita iniciarla en ese sentido (por ejemplo, un docente que responde a Dirección). Dirección no adjunta archivos. En "Ver como" los mensajes no se abren: son privados de cada persona.
 
 ### 12.9 Foros
 
@@ -493,7 +496,7 @@ Decisión del 23 de noviembre de 2026 (Marcos: "Integra absolutamente todo lo qu
 ### 12.11 Uso diario
 
 - Correo: el envío por Resend ya existe (10.6). Para que salga de verdad falta la llave de Resend y un remitente verificado; mientras no estén, la pantalla sigue mostrando el enlace.
-- Respaldos automáticos: una tarea diaria del hosting corre `scripts/respaldo-diario.php`, que guarda la base comprimida fuera de la carpeta pública (`ej-respaldos/`) y conserva los últimos 14 días. Coordinación ve en Administración la fecha y el tamaño del último respaldo, sin descargarlo.
+- Respaldos automáticos: una tarea diaria del hosting corre `scripts/respaldo-diario.php`, que guarda la base comprimida fuera de la carpeta pública (`ej-respaldos/`) y conserva los últimos 14 días. Corre solo por línea de comandos y vive en `api/` con el acceso por web negado. Coordinación ve en Administración la fecha y el tamaño del último respaldo, sin descargarlo.
 - Aviso de privacidad: página pública `/privacidad` y enlace en la pantalla de entrada. Es un borrador para que lo revise la Escuela: los datos del responsable dicen "Sin información todavía" hasta que la Escuela los dé.
 - Dominio propio: lo decide la Escuela; el sistema funciona igual en cualquier dominio.
 
