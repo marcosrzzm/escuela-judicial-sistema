@@ -126,10 +126,11 @@ Requisitos locales: Node 22 o superior, PHP 8.3 con `pdo_mysql`, binarios de MyS
 | Reiniciar la base con la semilla | `scripts/dev.sh --reiniciar` |
 | Revisar tipos y lint | `cd web && npm run lint && npx tsc -b` |
 | Pruebas del frontend | `cd web && npm test` |
-| Criterios de aceptación CA-01 a CA-14 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
+| Criterios de aceptación CA-01 a CA-20 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
 | Compilar | `cd web && npm run build` |
 | Armar la carpeta para el hosting | `scripts/publicar.sh` |
 | Primera cuenta de Coordinación en una base sin semilla | `php scripts/crear-coordinacion.php` |
+| Migrar el temporal ya publicado a la administración (solo la migración 03, sin borrar; pide respaldo) | `node scripts/migrar-base.mjs --aplicar --respaldo seguridad/respaldos/<volcado>.sql`; pasos en `docs/guia-validacion.md`, sección "Migrar el temporal" |
 
 Antes de dar una tarea por terminada: lint, tipos, build y `pruebas/aceptacion.mjs` en verde.
 

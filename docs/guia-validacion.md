@@ -33,3 +33,16 @@ Prototipo con datos ficticios para la validación del 24 al 26 de noviembre de 2
 - Supuesto por confirmar: calificación mínima aprobatoria de 8.0.
 
 Lo que se capture durante la validación queda guardado en el sitio; si algo queda raro, se pide reiniciar la demostración.
+
+## Migrar el temporal a la administración (sin borrar nada)
+
+El instalador de un solo uso borra todas las tablas: sirve para una base nueva, nunca para una con datos. Para subir la administración (migración 03, solo agrega) al temporal ya publicado:
+
+1. Respaldo: exportar la base del temporal (hPanel, phpMyAdmin, Exportar, SQL) a `seguridad/respaldos/AAAA-MM-DD.sql`. Sin ese archivo el comando siguiente se niega.
+2. `scripts/publicar.sh` y subir `publicar/` como siempre (la API nueva ya incluye la guardia de la 03; hasta aplicarla, entrar fallaría, así que 3 y 4 van seguidos).
+3. Subir `scripts/migrar-remoto.php` con un nombre aleatorio y la carpeta `_sql/` con solo `sql/03_administracion.sql`, con el hash del token puesto en lugar de `__TOKEN_HASH__` (igual que el instalador). Guardar su URL y token en `seguridad/destino.json`.
+4. `node scripts/migrar-base.mjs --estado` debe decir `PENDIENTE 03_administracion.sql`; luego `node scripts/migrar-base.mjs --aplicar --respaldo seguridad/respaldos/<volcado>.sql`. Revisar que `antes` y `despues` traigan los mismos conteos y `roles` sea 5. Se puede repetir sin efecto.
+5. Llamar `accion=borrar` para que el migrador se elimine, y comprobar el inicio de sesión con cada cuenta de demostración.
+
+Probado en local sobre una base con la semilla anterior: aplica dos veces sin error y sin cambiar datos. No se ha ejecutado en el hosting.
+
