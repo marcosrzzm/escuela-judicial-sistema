@@ -79,7 +79,16 @@ function ruta_lista_grupo(array $a): never
             [$gid]
         );
     }
-    responder(200, ['grupo' => $grupo, 'alumnos' => $alumnos, 'asignaciones' => $asig]);
+    $extra = [];
+    if ($coordinacion) {
+        // Quién apoya y qué alumnos ya tienen cuenta (solo Coordinación y Dirección; sin correos).
+        $extra['auxiliares'] = filas('SELECT u.id, u.nombre FROM asignacion_auxiliar x JOIN usuario u ON u.id = x.usuario_id WHERE x.grupo_id = ? ORDER BY u.nombre', [$gid]);
+        $extra['cuentas_alumno'] = array_map('intval', array_column(filas(
+            'SELECT u.alumno_id FROM usuario u JOIN inscripcion_grupo i ON i.alumno_id = u.alumno_id WHERE i.grupo_id = ? AND u.alumno_id IS NOT NULL',
+            [$gid]
+        ), 'alumno_id'));
+    }
+    responder(200, ['grupo' => $grupo, 'alumnos' => $alumnos, 'asignaciones' => $asig] + $extra);
 }
 
 function grupo_editable(int $gid): array

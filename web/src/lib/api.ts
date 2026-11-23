@@ -44,7 +44,7 @@ export const actualizar = <T>(ruta: string, datos: unknown = {}) =>
 
 // ─── Tipos del dominio ───────────────────────────────────────────────────────
 
-export type Rol = 'coordinacion' | 'docente' | 'direccion' | 'carga_externa' | 'auxiliar'
+export type Rol = 'coordinacion' | 'docente' | 'direccion' | 'carga_externa' | 'auxiliar' | 'alumno'
 
 export type Sesion = {
   id: number
@@ -59,6 +59,9 @@ export type Sesion = {
   /** Permisos efectivos "recurso:accion". El servidor los vuelve a validar en cada petición. */
   permisos: string[]
   debe_cambiar_clave: boolean
+  /** Solo en cuentas de Alumno: el alumno al que está ligada. */
+  alumno_id: number | null
+  preferencia_tema: 'claro' | 'oscuro'
   /** Verdadero mientras Coordinación mira el sistema como esta cuenta. */
   solo_lectura: boolean
   actor_real: { id: number; nombre: string; rol: string } | null
@@ -83,6 +86,7 @@ export type Grupo = {
   turno: string
   estado: string
   alumnos_activos: number
+  fecha_cierre_prevista: string | null
 }
 
 export type AlumnoLista = {
@@ -103,6 +107,9 @@ export type ListaGrupo = {
   grupo: Omit<Grupo, 'alumnos_activos'>
   alumnos: AlumnoLista[]
   asignaciones: { id: number; materia: string; docente: string }[]
+  auxiliares?: { id: number; nombre: string }[]
+  /** Cuentas de alumno por alumno (solo Coordinación y Dirección). */
+  cuentas_alumno?: number[]
 }
 
 export type ResumenEntrega = {
@@ -125,6 +132,8 @@ export type Asignacion = {
   materia: string
   docente: string
   alumnos_activos: number
+  programa: string
+  fecha_limite_entrega: string | null
   entrega: ResumenEntrega | null
 }
 
@@ -562,7 +571,13 @@ export const crearMateria = (datos: { clave: string; nombre: string }) =>
   enviar<{ id: number }>('/materias', datos)
 export const editarMateria = (id: number, datos: { clave: string; nombre: string }) =>
   actualizar<{ id: number }>(`/materias/${id}`, datos)
-export type DatosGrupo = { periodo_id: number; clave: string; programa: string; turno: string }
+export type DatosGrupo = {
+  periodo_id: number
+  clave: string
+  programa: string
+  turno: string
+  fecha_cierre_prevista?: string | null
+}
 export const crearGrupo = (datos: DatosGrupo) => enviar<{ id: number }>('/grupos', datos)
 export const editarGrupo = (id: number, datos: DatosGrupo & { estado: string }) =>
   actualizar<{ id: number }>(`/grupos/${id}`, datos)
@@ -570,6 +585,7 @@ export const crearAsignacion = (datos: {
   grupo_id: number
   materia_id: number
   docente_id: number
+  fecha_limite_entrega?: string | null
 }) => enviar<{ id: number }>('/asignaciones', datos)
 export const cambiarDocente = (id: number, docenteId: number, motivo: string) =>
   actualizar<{ id: number }>(`/asignaciones/${id}`, { docente_id: docenteId, motivo })
@@ -579,3 +595,133 @@ export const editarAlumno = (
 ) => actualizar<{ id: number }>(`/alumnos/${id}`, datos)
 export const importarLista = (grupoId: number, texto: string) =>
   enviar<ResumenImportacion>(`/grupos/${grupoId}/importar`, { texto })
+
+// ─── Plataforma: tablero, grupo, calendario, avisos y cuenta (sección 11) ────
+
+export type ElementoPorHacer = {
+  tipo: string
+  texto: string
+  enlace: string
+  cantidad: number | null
+  fecha: string | null
+}
+
+export type Actividad = { id: number; fecha: string; texto: string; enlace: string }
+
+export type TarjetaTablero = {
+  tipo: 'grupo' | 'asignacion' | 'materia'
+  id?: number
+  titulo: string
+  grupo: string
+  programa: string
+  periodo: string
+  enlace: string
+  turno?: string
+  docente?: string
+  alumnos_activos?: number
+  fecha_limite?: string | null
+  fecha_cierre_prevista?: string | null
+  entrega?: { estado: string; version: number } | null
+  entregas_esperadas?: number
+  entregas_recibidas?: number
+  cierre?: string | null
+  calificacion?: { valor: number | null; estatus: string } | null
+  derecho?: 'con_derecho' | 'sin_derecho' | 'pendiente' | null
+}
+
+export type Tablero = {
+  periodos: { id: number; nombre: string; estado: string }[]
+  periodo_id: number | null
+  tarjetas: TarjetaTablero[]
+  por_hacer: ElementoPorHacer[]
+  actividad: Actividad[]
+}
+
+export type MateriaGrupo = {
+  id: number
+  materia_clave: string
+  materia: string
+  docente: string
+  fecha_limite_entrega: string | null
+  aceptada: boolean
+  entrega: ResumenEntrega | null
+}
+
+export type ResumenGrupo = {
+  grupo: {
+    id: number
+    clave: string
+    programa: string
+    turno: string
+    periodo: string
+    periodo_id: number
+    periodo_estado: string
+    estado: string
+    fecha_cierre_prevista: string | null
+  }
+  alumnos_activos: number
+  materias: MateriaGrupo[]
+  entregas_por_estado: Record<string, number>
+  decisiones: { en_direccion: number; por_revisar: number }
+  cierre: { id: number; version: number; estado: string } | null
+  proximas_fechas: { tipo: string; fecha: string; titulo: string }[]
+  por_hacer: ElementoPorHacer[]
+  actividad: Actividad[]
+}
+
+export type Sabana = {
+  grupo: { id: number; clave: string; periodo: string }
+  materias: string[]
+  alumnos: {
+    alumno_id: number
+    identificador: string
+    nombre: string
+    celdas: Record<string, { valor: number | null; estatus: string }>
+    pendientes: string[]
+  }[]
+}
+
+export type EventoCalendario = {
+  id: string
+  tipo: 'periodo_inicio' | 'periodo_fin' | 'entrega' | 'cierre'
+  fecha: string
+  titulo: string
+  grupo_id: number | null
+  grupo: string | null
+  enlace: string
+}
+
+export type Calendario = {
+  eventos: EventoCalendario[]
+  grupos: { id: number; clave: string; periodo: string }[]
+}
+
+export type Aviso = {
+  id: number
+  tipo: string
+  texto: string
+  enlace: string
+  leido: boolean
+  creado_en: string
+}
+
+export type SesionAbierta = {
+  id: number
+  creado_en: string
+  ultimo_uso: string
+  expira_en: string
+  actual: boolean
+}
+
+export const marcarAviso = (id: number) => actualizar<{ no_leidos: number }>(`/avisos/${id}/leer`)
+export const marcarAvisos = () => actualizar<{ no_leidos: number }>('/avisos/leer-todos')
+export const cerrarSesionAbierta = (id: number) =>
+  actualizar<{ ok: true }>(`/cuenta/sesiones/${id}/cerrar`)
+export const fijarTema = (tema: 'claro' | 'oscuro') =>
+  actualizar<{ tema: string }>('/cuenta/tema', { tema })
+export const fijarFechaLimite = (asignacionId: number, fecha: string | null) =>
+  actualizar<{ id: number }>(`/asignaciones/${asignacionId}/fecha-limite`, {
+    fecha_limite_entrega: fecha,
+  })
+export const invitarAlumno = (alumnoId: number, correo: string) =>
+  enviar<AltaUsuario>(`/alumnos/${alumnoId}/cuenta`, { correo })
