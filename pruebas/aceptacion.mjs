@@ -495,7 +495,7 @@ ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su mot
 
 ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente solo encuentra a sus alumnos; Dirección lee historiales pero no escribe', async () => {
   // Todas las rutas de rutas.php, menos las públicas, responden 401 sin sesión y con Cache-Control: no-store.
-  const publicas = new Set(['POST /login', 'GET /ajustes-publicos', 'GET /acceso/validar', 'POST /acceso/clave', 'POST /olvide-clave'])
+  const publicas = new Set(['POST /login', 'POST /entrar-demo', 'GET /ajustes-publicos', 'GET /acceso/validar', 'POST /acceso/clave', 'POST /olvide-clave'])
   const rutas = [...readFileSync(join(raiz, 'api/rutas.php'), 'utf8').matchAll(/\['(GET|POST|PUT)', '([^']+)'/g)].map((m) => [m[1], m[2].replace('{id}', '1')])
   afirmar(rutas.length > 60, 'No se leyeron las rutas')
   const anonimo = new Cliente('anonimo')
@@ -1163,6 +1163,16 @@ if (!REMOTO) {
     afirmar((await docA.get('/calendario')).datos.eventos.some((e) => e.tipo === 'tarea'), 'El calendario del docente no trae la tarea')
   })
 }
+
+ca('CA-47', 'Entrada de demostración: una cuenta de la lista entra sin contraseña; un correo fuera de la lista responde 404', async () => {
+  const visitante = anonimo()
+  const lista = (await visitante.get('/ajustes-publicos')).datos.cuentas_demo
+  igual(lista.length, 7, 'Cuentas de demostración en la pantalla de entrada')
+  const r = await visitante.post('/entrar-demo', { correo: 'docente.a@prueba.local' })
+  igual(r.estado, 200, 'Entrar como Docente A')
+  igual((await visitante.get('/sesion')).datos.correo, 'docente.a@prueba.local', 'La sesión es la de Docente A')
+  igual((await anonimo().post('/entrar-demo', { correo: 'otra@escuela.mx' })).estado, 404, 'Correo fuera de la lista')
+})
 
 let fallas = 0
 for (const c of criterios) {

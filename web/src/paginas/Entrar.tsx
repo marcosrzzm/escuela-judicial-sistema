@@ -8,33 +8,24 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CampoTexto } from '@/componentes/CampoFormulario'
 import { toast } from 'sonner'
-import { pedirRestablecer } from '@/lib/api'
+import { entrarDemo, pedirRestablecer } from '@/lib/api'
 import { avisar } from '@/lib/avisos'
 import { rutaInicial, rutaPermitida } from '@/lib/navegacion'
 import { useDatos } from '@/lib/datos'
 import { limpiarCorreo } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 
-const CUENTAS = [
-  ['coordinacion@prueba.local', 'Coordinación'],
-  ['docente.a@prueba.local', 'Docente A'],
-  ['docente.b@prueba.local', 'Docente B'],
-  ['direccion@prueba.local', 'Dirección'],
-  ['carga@prueba.local', 'Carga externa'],
-  ['auxiliar@prueba.local', 'Auxiliar'],
-] as const
-
 // ponytail: el navegador rechaza un correo con un espacio o un carácter invisible pegado; se quitan al escribir.
 
 export function Entrar() {
-  const { sesion, entrar, cargando } = useSesion()
+  const { sesion, entrar, cargando, recargar } = useSesion()
   const ubicacion = useLocation()
   const [correo, setCorreo] = useState('')
   const [clave, setClave] = useState('')
   const [ver, setVer] = useState(false)
   const [entrando, setEntrando] = useState(false)
   const [olvide, setOlvide] = useState<'no' | 'escribiendo' | 'enviada'>('no')
-  const ajustes = useDatos<{ datos_ficticios: boolean }>('/ajustes-publicos')
+  const ajustes = useDatos<{ datos_ficticios: boolean; cuentas_demo?: { correo: string; rol: string }[] }>('/ajustes-publicos')
 
   // Mientras se resuelve si ya hay sesión no se decide nada: sin este freno el formulario
   // parpadea y luego desaparece al recargar.
@@ -49,6 +40,18 @@ export function Entrar() {
         replace
       />
     )
+
+  async function alEntrarDemo(c: string) {
+    setEntrando(true)
+    const r = await entrarDemo(c)
+    setEntrando(false)
+    if (r.ok) {
+      toast.dismiss()
+      await recargar()
+    } else avisar.error(r.error)
+  }
+
+  const demo = ajustes.datos?.cuentas_demo ?? []
 
   async function alEnviar(evento: FormEvent) {
     evento.preventDefault()
@@ -178,24 +181,22 @@ export function Entrar() {
             (borrador para revisión de la Escuela).
           </p>
 
-          {/* Solo en desarrollo: el build que se sube no trae cuentas ni contraseñas. */}
-          {import.meta.env.DEV ? (
+          {/* Entrada de demostración: la lista la manda el servidor solo mientras los datos son ficticios. */}
+          {demo.length ? (
             <section className="flex flex-col gap-2 border-t border-line pt-4">
-              <h2 className="text-sm font-semibold text-ink">Cuentas de prueba</h2>
+              <h2 className="text-sm font-semibold text-ink">Entrar como cuenta de prueba</h2>
               <p className="text-xs text-ink-3">
-                Contraseña común: Prueba2026. Elige una para llenar el correo.
+                Para conocer el sistema: elige un perfil y entras directo a lo que ve esa persona. Todos los datos son ficticios.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {CUENTAS.map(([c, rol]) => (
+                {demo.map(({ correo: c, rol }) => (
                   <Button
                     key={c}
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setCorreo(c)
-                      setClave('Prueba2026')
-                    }}
+                    disabled={entrando}
+                    onClick={() => void alEntrarDemo(c)}
                   >
                     {rol}
                   </Button>

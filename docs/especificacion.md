@@ -301,6 +301,7 @@ Pantalla Catálogos, para Coordinación (y roles personalizados con base Coordin
 ### 10.5 Primer uso con datos reales
 
 - La franja "Prototipo · datos ficticios" se controla con `DATOS_FICTICIOS` en `api/ajustes.php` y sigue encendida mientras no exista autorización escrita de la Escuela para usar datos reales (sección 8, punto 5).
+- Entrada de demostración (decisión del 23 de noviembre de 2026, Marcos: "pon una entrada de prueba... ya después lo quitamos"): mientras `DATOS_FICTICIOS` y `ENTRADA_DEMO` estén encendidos, la pantalla de entrada muestra un botón por cada cuenta ficticia de `@prueba.local` (las siete de la semilla) y entra directo, sin contraseña, a lo que ve ese perfil. El servidor solo acepta esas siete cuentas; cualquier otro correo, o con alguna de las dos banderas apagada, responde 404. Cada entrada queda en bitácora como "entrada de demostración". Se quita antes de cargar datos reales.
 - Para arrancar una base sin la semilla: se aplican las migraciones sin `90_semilla.sql` y se crea la primera cuenta de Coordinación con `scripts/crear-coordinacion.php`, que imprime la contraseña temporal solo en la terminal de quien lo corre.
 
 ### 10.6 Invitaciones y restablecimiento por correo
@@ -338,7 +339,7 @@ Reglas:
 4. Dirección ve todo lo que ve Coordinación, en modo consulta, y autoriza los casos que se le envían. No crea ni modifica nada más, salvo mandar mensajes uno a uno (12.8), ni usa "ver como". De Usuarios y roles solo consulta.
 5. Carga externa ve únicamente los lotes de cierres aprobados, con los campos del lote; no ve motivos ni historiales.
 6. Los correos de las cuentas los ven Coordinación y Dirección (decisión del 23 de noviembre de 2026: "Dirección ve todo"). Ningún otro rol los ve.
-7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
+7. Nada sin sesión: fuera de entrar (también la entrada de demostración de 10.5 mientras exista), la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
 8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven fuera de git y de la carpeta pública: en local, `seguridad/respaldos/`; en el hosting, `ej-respaldos/` un nivel arriba de ella (12.11).
 9. Los roles personalizados heredan estos límites de su rol base; ninguno puede ver más que su base.
 10. El Alumno ve solo sus propios datos: sus calificaciones de entregas aceptadas, el resultado (nunca el motivo ni la evidencia) de su derecho a evaluación, su boleta y sus pendientes. Nunca ve a otro alumno, listas, bitácora, correos, lotes ni los detalles internos de un cierre.

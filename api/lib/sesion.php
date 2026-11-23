@@ -25,7 +25,32 @@ function datos_de_sesion(array $u): array
 /** Lo único que la pantalla de entrada necesita saber antes de que alguien inicie sesión. */
 function ruta_ajustes_publicos(): never
 {
-    responder(200, ['datos_ficticios' => DATOS_FICTICIOS]);
+    $demo = [];
+    if (DATOS_FICTICIOS && ENTRADA_DEMO) {
+        foreach (CUENTAS_DEMO as $correo => $rol) {
+            $demo[] = ['correo' => $correo, 'rol' => $rol];
+        }
+    }
+    responder(200, ['datos_ficticios' => DATOS_FICTICIOS, 'cuentas_demo' => $demo]);
+}
+
+/** Entrada de demostración: entra con una cuenta ficticia de la lista sin contraseña. Fuera de la demostración, 404. */
+function ruta_entrar_demo(): never
+{
+    $correo = correo_limpio(cuerpo_json());
+    if (!DATOS_FICTICIOS || !ENTRADA_DEMO || !array_key_exists($correo, CUENTAS_DEMO)) {
+        error_http(404, 'No encontrado.');
+    }
+    $u = fila('SELECT id FROM usuario WHERE correo = ? AND estado = \'activo\'', [$correo]);
+    if ($u === null || cargar_usuario((int) $u['id']) === null) {
+        error_http(404, 'Esa cuenta de prueba no está disponible.');
+    }
+    crear_sesion((int) $u['id']);
+    registrar_bitacora('sesion', (int) $u['id'], 'inicio_sesion', null, null, 'entrada de demostración', (int) $u['id']);
+    $u = cargar_usuario((int) $u['id']);
+    $u['solo_lectura'] = false;
+    $u['actor_real'] = null;
+    responder(200, datos_de_sesion($u));
 }
 
 function ruta_sesion(): never

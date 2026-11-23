@@ -401,6 +401,7 @@ export type PaginaBitacora = {
 export const sesionActual = () => leer<Sesion>('/sesion')
 export const iniciarSesion = (correo: string, clave: string) =>
   enviar<Sesion>('/login', { correo, clave })
+export const entrarDemo = (correo: string) => enviar<Sesion>('/entrar-demo', { correo })
 export const cerrarSesion = () => enviar<{ ok: true }>('/logout')
 
 export const altaInscripcion = (

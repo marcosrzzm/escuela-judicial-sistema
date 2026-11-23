@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 return [
     ['POST', '/login', 'ruta_login'],
+    ['POST', '/entrar-demo', 'ruta_entrar_demo'],
     ['POST', '/logout', 'ruta_logout'],
     ['GET', '/sesion', 'ruta_sesion'],
     ['GET', '/ajustes-publicos', 'ruta_ajustes_publicos'],

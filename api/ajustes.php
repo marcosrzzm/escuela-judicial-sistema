@@ -9,6 +9,23 @@ declare(strict_types=1);
 const DATOS_FICTICIOS = true;
 
 /**
+ * Entrada de demostración (especificación, 10.5): botones en la pantalla de entrada para entrar directo con cada
+ * cuenta ficticia de @prueba.local, sin contraseña. Solo funciona con DATOS_FICTICIOS en true. Se quita poniendo false.
+ */
+const ENTRADA_DEMO = true;
+
+/** Cuentas ficticias de la entrada de demostración, en el orden en que se muestran. */
+const CUENTAS_DEMO = [
+    'coordinacion@prueba.local' => 'Coordinación',
+    'docente.a@prueba.local' => 'Docente A',
+    'docente.b@prueba.local' => 'Docente B',
+    'direccion@prueba.local' => 'Dirección',
+    'carga@prueba.local' => 'Carga externa',
+    'auxiliar@prueba.local' => 'Auxiliar',
+    'alumno@prueba.local' => 'Alumno',
+];
+
+/**
  * Lee la configuración de un archivo fuera de la carpeta pública.
  * Orden de búsqueda: variable EJ_CONFIG, el .env de la raíz del repo (local) y
  * ej-config.env un nivel arriba de la carpeta pública (hosting).
