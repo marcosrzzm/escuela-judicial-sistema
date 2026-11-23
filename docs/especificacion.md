@@ -191,7 +191,7 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 | CA-07 | Coordinación intenta preparar el cierre de POS-02 sin entrega aceptada | Coordinación lo intenta de nuevo con excepción y motivo | Sin excepción responde 422; con excepción el cierre se crea y la excepción queda en bitácora |
 | CA-08 | Coordinación genera el lote de un cierre aprobado | Carga externa abre Lotes recibidos | Ve periodo, grupo, versión de cierre, responsable y fecha del lote |
 | CA-09 | Carga externa registra recepción, carga y una discrepancia | Coordinación abre Cierre y lote; Carga externa intenta modificar el cierre por API | Coordinación ve el traspaso y la discrepancia; el intento de Carga externa responde 403 y el cierre no cambia |
-| CA-10 | Coordinación devuelve una entrega con motivo | Dirección abre Bitácora | Aparece la acción con usuario, fecha, motivo y valores antes y después |
+| CA-10 | Coordinación devuelve una entrega con motivo | Coordinación y Dirección abren Bitácora | Coordinación ve la acción con usuario, fecha, motivo y valores antes y después; Dirección ve la acción con usuario y fecha, sin motivo ni valores |
 | CA-11 | Coordinación hace una captura excepcional por Docente B | Coordinación abre Métricas | El caso del grupo suma los campos recapturados; un caso de línea base registrado a mano aparece junto para comparar |
 | CA-12 | Coordinación trabaja en la lista y en el cierre de POS-01 | Coordinación abre Métricas | Se ven los minutos activos de ese caso; el tiempo sin actividad de más de 2 minutos no cuenta |
 | CA-13 | Auxiliar pide la lista de POS-02; Docente B pide el historial de un alumno | Coordinación revisa la bitácora | Las dos peticiones responden 403 |
@@ -204,6 +204,8 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 | CA-20 | Coordinación crea periodo, materia y grupo, asigna la materia al docente nuevo e importa la lista de alumnos desde un archivo CSV | El docente nuevo abre Mis asignaciones | Ve la asignación con la lista importada sin capturar nada; las filas repetidas en el mismo grupo se rechazan por RN-01 y el resumen de importación las muestra |
 | CA-21 | Coordinación invita por correo a una cuenta nueva | La persona abre el enlace y crea su contraseña; después usa el mismo enlace otra vez | Entra con su contraseña nueva sin haber visto una temporal; el segundo uso responde 410 y la invitación queda en bitácora sin el token |
 | CA-22 | Una persona pide restablecer su contraseña desde la pantalla de entrada | Coordinación autoriza la solicitud; antes de eso nadie recibió enlace | Sin autorización no existe enlace; al autorizar sale uno solo, sirve una vez y cierra sus sesiones; un correo inexistente recibe la misma respuesta y no crea solicitud visible |
+| CA-23 | Coordinación registra "sin derecho" con motivo y evidencia para un alumno de POS-01 | Docente A abre su asignación y pide la decisión por API | Ve al alumno como "sin derecho" pero la respuesta no trae motivo ni evidencia; Auxiliar y Carga externa no ven la decisión |
+| CA-24 | Sin sesión se piden listas, alumnos, historial, lotes y bitácora; Docente A busca un alumno que no es de sus grupos; Dirección pide un historial | Revisión de las respuestas | Sin sesión todo responde 401 sin datos; el buscador del docente no lo encuentra; Dirección recibe 403 |
 
 ## 8. Supuestos que hay que confirmar con la Escuela
 
@@ -303,3 +305,27 @@ Decisión del 23 de noviembre de 2026 (Marcos): Coordinación invita por correo 
 - Todo va a la bitácora: invitación enviada, reenviada y usada; solicitud creada, autorizada o rechazada; restablecimiento usado. Nunca el token ni la contraseña.
 - No son comunicaciones masivas: cada correo va a una sola persona y lo dispara una acción de Coordinación. La exclusión de G2 sobre comunicaciones masivas sigue igual.
 - Mientras `DATOS_FICTICIOS` esté encendido, el correo solo sale de verdad a los destinatarios de `CORREO_PERMITIDOS` (dominios completos o direcciones exactas); a cualquier otro el sistema no le manda nada, la pantalla dice "Modo de prueba: el correo no se envió" y muestra el enlace o la contraseña temporal para que la demostración siga. En todos los modos hay un tope de 50 correos por día (`CORREO_TOPE_DIARIO`).
+
+### 10.7 Datos sensibles: quién ve qué
+
+Decisión del 23 de noviembre de 2026 (Marcos): nada queda público y solo Coordinación ve los datos sensibles de los alumnos; el docente ve únicamente lo que necesita para calificar su materia. Referencia: el modelo de permisos por inscripción de Canvas LMS (documentación pública), donde el docente solo existe dentro de los cursos que imparte.
+
+Tres niveles de dato:
+
+| Nivel | Qué incluye | Quién lo ve |
+|---|---|---|
+| Identificación | Nombre y matrícula del alumno | Coordinación; Docente y Auxiliar solo de sus grupos; Carga externa solo dentro de un lote aprobado |
+| Académico | Calificaciones, historial, pendientes | Coordinación; Docente solo las calificaciones de su asignación; Carga externa solo las del lote aprobado |
+| Sensible | Motivo y evidencia del derecho a evaluación, motivos de captura excepcional, de reapertura y de excepción de cierre, valores antes y después en la bitácora | Coordinación; Dirección solo en los casos que se le envían a autorizar |
+
+Reglas:
+
+1. El docente ve el resultado del derecho a evaluación de sus alumnos (con derecho, sin derecho, pendiente) para saber a quién no calificar, pero nunca el motivo ni la evidencia. Sí ve el motivo cuando le devuelven su propia entrega.
+2. El docente no ve historial, pendientes ni calificaciones de otras materias o grupos, y el buscador solo le encuentra alumnos de sus grupos.
+3. El Auxiliar ve nombre y matrícula de los grupos que tiene asignados, nada más.
+4. Dirección ve el detalle completo solo de las decisiones y cierres que le llegan a autorizar. No tiene acceso a listas generales, historiales ni calificaciones fuera de esos casos. En Bitácora ve quién hizo qué y cuándo, sin motivos ni valores antes y después.
+5. Carga externa ve únicamente los lotes de cierres aprobados, con los campos del lote; no ve motivos ni historiales.
+6. Los correos de las cuentas solo los ve Coordinación.
+7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
+8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven solo en `seguridad/`, fuera de git y del hosting.
+9. Los roles personalizados heredan estos límites de su rol base; ninguno puede ver más que su base.

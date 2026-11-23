@@ -34,4 +34,5 @@ Qué cambió entre la compuerta G2 (`E4_G2_Arquitectura.pdf`, 14 de octubre de 2
 
 | 28 | Cuentas creadas por la Escuela sin canal de entrega de acceso | Invitación por correo con enlace de un solo uso para crear la contraseña | Decisión del 23 de noviembre de 2026: cada persona usa su correo de la Escuela y elige su contraseña |
 | 29 | Sin recuperación de acceso | Restablecimiento solo con autorización de Coordinación, por correo | Una recuperación automática dejaría a cualquiera con acceso al correo sin control de la Escuela |
-No se quitó nada del alcance de G2. Las filas 22 a 29 agregan alcance por decisión registrada; las otras exclusiones de la sección 6.7 siguen igual.
+| 30 | Matriz con Dirección viendo alumnos, calificaciones, pendientes y bitácora completa; Docente viendo decisiones propias | Tres niveles de dato; Dirección limitada a los casos que autoriza y a bitácora sin motivos ni valores; Docente sin motivo ni evidencia del derecho a evaluación | Decisión del 23 de noviembre de 2026: solo Coordinación ve datos sensibles (especificación, 10.7) |
+No se quitó nada del alcance de G2. Las filas 22 a 30 agregan alcance por decisión registrada; las otras exclusiones de la sección 6.7 siguen igual.
