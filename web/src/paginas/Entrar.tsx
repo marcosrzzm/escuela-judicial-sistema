@@ -12,6 +12,7 @@ import { pedirRestablecer } from '@/lib/api'
 import { avisar } from '@/lib/avisos'
 import { rutaInicial, rutaPermitida } from '@/lib/navegacion'
 import { useDatos } from '@/lib/datos'
+import { limpiarCorreo } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 
 const CUENTAS = [
@@ -24,7 +25,6 @@ const CUENTAS = [
 ] as const
 
 // ponytail: el navegador rechaza un correo con un espacio o un carácter invisible pegado; se quitan al escribir.
-const limpiarCorreo = (v: string) => v.replace(/[\s\u00A0\u00AD\u200B-\u200F\u2060\uFEFF]/g, '')
 
 export function Entrar() {
   const { sesion, entrar, cargando } = useSesion()

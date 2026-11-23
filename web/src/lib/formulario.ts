@@ -31,3 +31,7 @@ export function soloFecha(iso: string | null): string {
 export function minutos(segundos: number): string {
   return (segundos / 60).toLocaleString('es-MX', { maximumFractionDigits: 1 })
 }
+
+/** Quita espacios y caracteres invisibles que se cuelan al copiar y pegar un correo. */
+export const limpiarCorreo = (v: string) =>
+  v.replace(/[\s\u00A0\u00AD\u200B-\u200F\u2060\uFEFF]/g, '')
