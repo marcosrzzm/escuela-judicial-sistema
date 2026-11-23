@@ -21,6 +21,7 @@ function grupo_en_alcance(array $u, int $grupo_id): bool
         'coordinacion', 'direccion' => true,
         'docente' => fila('SELECT id FROM asignacion_docente WHERE grupo_id = ? AND docente_id = ? LIMIT 1', [$grupo_id, $u['id']]) !== null,
         'auxiliar' => fila('SELECT id FROM asignacion_auxiliar WHERE grupo_id = ? AND usuario_id = ?', [$grupo_id, $u['id']]) !== null,
+        'alumno' => $u['alumno_id'] !== null && fila('SELECT id FROM inscripcion_grupo WHERE grupo_id = ? AND alumno_id = ? AND estado = \'activa\'', [$grupo_id, $u['alumno_id']]) !== null,
         default => false,
     };
 }

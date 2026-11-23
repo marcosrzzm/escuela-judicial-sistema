@@ -8,15 +8,14 @@ function ruta_periodos(): never
     responder(200, ['filas' => filas('SELECT id, nombre, fecha_inicio, fecha_fin, estado FROM periodo ORDER BY fecha_inicio DESC')]);
 }
 
-function ruta_grupos(): never
+/** Grupos que el rol puede ver (Docente y Auxiliar, solo los suyos), con su lista vigente contada. */
+function grupos_en_alcance(array $u, ?int $periodo_id = null): array
 {
-    $u = exigir_permiso('grupo', 'ver');
-    $periodo = isset($_GET['periodo_id']) ? (int) $_GET['periodo_id'] : null;
     $donde = ['1 = 1'];
     $p = [];
-    if ($periodo) {
+    if ($periodo_id) {
         $donde[] = 'g.periodo_id = ?';
-        $p[] = $periodo;
+        $p[] = $periodo_id;
     }
     if ($u['base'] === 'docente') {
         $donde[] = 'EXISTS (SELECT 1 FROM asignacion_docente a WHERE a.grupo_id = g.id AND a.docente_id = ?)';
@@ -24,15 +23,23 @@ function ruta_grupos(): never
     } elseif ($u['base'] === 'auxiliar') {
         $donde[] = 'EXISTS (SELECT 1 FROM asignacion_auxiliar x WHERE x.grupo_id = g.id AND x.usuario_id = ?)';
         $p[] = $u['id'];
+    } elseif ($u['base'] === 'alumno') {
+        $donde[] = 'EXISTS (SELECT 1 FROM inscripcion_grupo i WHERE i.grupo_id = g.id AND i.alumno_id = ? AND i.estado = \'activa\')';
+        $p[] = (int) $u['alumno_id'];
     }
-    $filas = filas(
-        'SELECT g.id, g.periodo_id, pe.nombre AS periodo, pe.estado AS periodo_estado, g.clave, g.programa, g.turno, g.estado,
+    return filas(
+        'SELECT g.id, g.periodo_id, pe.nombre AS periodo, pe.estado AS periodo_estado, g.clave, g.programa, g.turno, g.estado, g.fecha_cierre_prevista,
                 (SELECT COUNT(*) FROM inscripcion_grupo i WHERE i.grupo_id = g.id AND i.estado = \'activa\') AS alumnos_activos
          FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id
          WHERE ' . implode(' AND ', $donde) . ' ORDER BY pe.fecha_inicio DESC, g.clave',
         $p
     );
-    responder(200, ['filas' => $filas]);
+}
+
+function ruta_grupos(): never
+{
+    $u = exigir_permiso('grupo', 'ver');
+    responder(200, ['filas' => grupos_en_alcance($u, isset($_GET['periodo_id']) ? (int) $_GET['periodo_id'] : null)]);
 }
 
 function ruta_lista_grupo(array $a): never
@@ -43,7 +50,7 @@ function ruta_lista_grupo(array $a): never
         denegar("grupo $gid");
     }
     $grupo = fila(
-        'SELECT g.id, g.periodo_id, pe.nombre AS periodo, pe.estado AS periodo_estado, g.clave, g.programa, g.turno, g.estado
+        'SELECT g.id, g.periodo_id, pe.nombre AS periodo, pe.estado AS periodo_estado, g.clave, g.programa, g.turno, g.estado, g.fecha_cierre_prevista
          FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id WHERE g.id = ?',
         [$gid]
     );
@@ -187,7 +194,11 @@ function ruta_alumnos(): never
 
 function ruta_historial(array $a): never
 {
-    exigir_permiso('pendiente_academico', 'ver');
+    $u = exigir_permiso('pendiente_academico', 'ver');
+    $es_alumno = $u['base'] === 'alumno';
+    if ($es_alumno && (int) $u['alumno_id'] !== (int) $a['id']) {
+        denegar('historial de otro alumno');
+    }
     $alumno = fila('SELECT id, identificador, nombre, estatus FROM alumno WHERE id = ?', [(int) $a['id']]);
     if ($alumno === null) {
         denegar('alumno ' . (int) $a['id']);
@@ -219,12 +230,16 @@ function ruta_historial(array $a): never
          WHERE pa.alumno_id = ? ORDER BY pa.estado, pe.fecha_inicio',
         [$alumno['id']]
     );
+    if ($es_alumno) {
+        // El texto de resolución lo escribe Coordinación: el alumno ve el estado, no esa nota.
+        $pend = array_map(static fn (array $p): array => ['resolucion' => null] + $p, $pend);
+    }
     responder(200, [
         'alumno' => $alumno,
         'periodos' => array_values($periodos),
         'pendientes' => $pend,
-        'materias' => filas('SELECT id, nombre FROM materia ORDER BY nombre'),
-        'periodos_catalogo' => filas('SELECT id, nombre FROM periodo ORDER BY fecha_inicio'),
+        'materias' => $es_alumno ? [] : filas('SELECT id, nombre FROM materia ORDER BY nombre'),
+        'periodos_catalogo' => $es_alumno ? [] : filas('SELECT id, nombre FROM periodo ORDER BY fecha_inicio'),
     ]);
 }
 

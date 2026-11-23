@@ -5,11 +5,12 @@ INSERT INTO periodo (id, nombre, fecha_inicio, fecha_fin, estado) VALUES
   (1, '2026-A', '2026-01-12', '2026-06-26', 'cerrado'),
   (2, '2026-B', '2026-08-10', '2026-12-18', 'abierto');
 
-INSERT INTO grupo (id, periodo_id, clave, programa, turno, estado) VALUES
-  (1, 1, 'POS-01', 'Especialidad en Derecho Procesal (ficticia)', 'Matutino', 'cerrado'),
-  (2, 1, 'POS-02', 'Maestría en Teoría Jurídica (ficticia)', 'Vespertino', 'cerrado'),
-  (3, 2, 'POS-01', 'Especialidad en Derecho Procesal (ficticia)', 'Matutino', 'activo'),
-  (4, 2, 'POS-02', 'Maestría en Teoría Jurídica (ficticia)', 'Vespertino', 'activo');
+-- Las fechas del periodo abierto se calculan desde hoy para que el calendario y Por hacer siempre tengan contenido.
+INSERT INTO grupo (id, periodo_id, clave, programa, turno, estado, fecha_cierre_prevista) VALUES
+  (1, 1, 'POS-01', 'Especialidad en Derecho Procesal (ficticia)', 'Matutino', 'cerrado', NULL),
+  (2, 1, 'POS-02', 'Maestría en Teoría Jurídica (ficticia)', 'Vespertino', 'cerrado', NULL),
+  (3, 2, 'POS-01', 'Especialidad en Derecho Procesal (ficticia)', 'Matutino', 'activo', CURDATE() + INTERVAL 21 DAY),
+  (4, 2, 'POS-02', 'Maestría en Teoría Jurídica (ficticia)', 'Vespertino', 'activo', CURDATE() + INTERVAL 24 DAY);
 
 INSERT INTO usuario (id, nombre, correo, contrasena_hash, rol) VALUES
   (1, 'Lic. Marina Solís', 'coordinacion@prueba.local', '$2y$10$o38ORkOK93ATeYA2Uorg2OX8uj9LL5R3cdYeIG.AeVYPdsESDE63O', 'coordinacion'),
@@ -18,6 +19,7 @@ INSERT INTO usuario (id, nombre, correo, contrasena_hash, rol) VALUES
   (4, 'Mtro. Ernesto Villalobos', 'direccion@prueba.local', '$2y$10$o38ORkOK93ATeYA2Uorg2OX8uj9LL5R3cdYeIG.AeVYPdsESDE63O', 'direccion'),
   (5, 'Lic. Paula Ibarra', 'carga@prueba.local', '$2y$10$o38ORkOK93ATeYA2Uorg2OX8uj9LL5R3cdYeIG.AeVYPdsESDE63O', 'carga_externa'),
   (6, 'C. Diego Ramos', 'auxiliar@prueba.local', '$2y$10$o38ORkOK93ATeYA2Uorg2OX8uj9LL5R3cdYeIG.AeVYPdsESDE63O', 'auxiliar');
+
 
 INSERT INTO asignacion_auxiliar (usuario_id, grupo_id) VALUES (6, 3), (6, 1);
 
@@ -38,6 +40,10 @@ INSERT INTO alumno (id, identificador, nombre) VALUES
   (9, 'EJ-2026-009', 'Regina Padilla Mora'),
   (10, 'EJ-2026-010', 'Andrés Villaseñor Pino');
 
+UPDATE alumno SET correo = 'alumno@prueba.local' WHERE id = 1;
+INSERT INTO usuario (id, nombre, correo, contrasena_hash, rol, alumno_id) VALUES
+  (7, 'Valeria Camacho Ortega', 'alumno@prueba.local', '$2y$10$o38ORkOK93ATeYA2Uorg2OX8uj9LL5R3cdYeIG.AeVYPdsESDE63O', 'alumno', 1);
+
 -- 2026-A: todos inscritos en su grupo. 2026-B: igual, salvo una baja en POS-02.
 INSERT INTO inscripcion_grupo (alumno_id, grupo_id, estado, fecha_alta, fecha_baja, observacion) VALUES
   (1, 1, 'activa', '2026-01-12', NULL, ''), (2, 1, 'activa', '2026-01-12', NULL, ''),
@@ -54,9 +60,9 @@ INSERT INTO inscripcion_grupo (alumno_id, grupo_id, estado, fecha_alta, fecha_ba
   (10, 4, 'baja', '2026-08-10', '2026-09-14', 'Baja voluntaria (dato ficticio)');
 
 -- Asignaciones. 2026-A (grupos 1 y 2) con historial; 2026-B (grupos 3 y 4) las de la cuenta de prueba.
-INSERT INTO asignacion_docente (id, grupo_id, materia_id, docente_id) VALUES
-  (1, 1, 1, 2), (2, 1, 3, 3), (3, 2, 2, 3), (4, 2, 3, 2),
-  (5, 3, 1, 2), (6, 4, 2, 3);
+INSERT INTO asignacion_docente (id, grupo_id, materia_id, docente_id, fecha_limite_entrega) VALUES
+  (1, 1, 1, 2, NULL), (2, 1, 3, 3, NULL), (3, 2, 2, 3, NULL), (4, 2, 3, 2, NULL),
+  (5, 3, 1, 2, CURDATE() + INTERVAL 2 DAY), (6, 4, 2, 3, CURDATE() + INTERVAL 5 DAY);
 
 -- Historial 2026-A: entregas v1 aceptadas.
 INSERT INTO entrega_calificaciones (id, asignacion_id, version, estado, responsable_id, fecha_envio, fecha_revision, revisado_por) VALUES

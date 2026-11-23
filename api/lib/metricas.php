@@ -2,40 +2,6 @@
 
 declare(strict_types=1);
 
-function ruta_inicio(): never
-{
-    $u = exigir_permiso('cierre', 'ver');
-    if ($u['base'] !== 'coordinacion') {
-        denegar('inicio');
-    }
-    $por_revisar = fila('SELECT COUNT(*) AS n FROM entrega_calificaciones WHERE estado = \'enviada\'');
-    $a_direccion = fila(
-        'SELECT COUNT(*) AS n FROM decision_evaluacion d
-         WHERE d.resultado = \'requiere_autorizacion\' AND d.resolucion_direccion IS NULL
-           AND d.id = (SELECT MAX(x.id) FROM decision_evaluacion x WHERE x.asignacion_id = d.asignacion_id AND x.alumno_id = d.alumno_id)'
-    );
-    $cierres_direccion = fila('SELECT COUNT(*) AS n FROM cierre WHERE estado = \'en_autorizacion\'');
-    $con_discrepancias = fila('SELECT COUNT(*) AS n FROM lote_entrega WHERE estado = \'con_discrepancias\'');
-    $listos = 0;
-    foreach (filas('SELECT g.id FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id WHERE pe.estado = \'abierto\' AND g.estado = \'activo\'') as $g) {
-        $enCurso = fila('SELECT id FROM cierre WHERE grupo_id = ? AND estado IN (\'preparado\', \'en_autorizacion\', \'aprobado\') LIMIT 1', [$g['id']]);
-        $asig = estado_asignaciones((int) $g['id']);
-        if ($enCurso === null && $asig !== [] && !in_array(false, array_column($asig, 'aceptada'), true)) {
-            $listos++;
-        }
-    }
-    // Solicitudes de restablecer contraseña: solo las ve el rol del sistema coordinacion (especificación, 10.6).
-    $solicitudes = $u['es_sistema'] ? (int) fila('SELECT COUNT(*) AS n FROM solicitud_restablecer WHERE estado = \'pendiente\'')['n'] : 0;
-    responder(200, [
-        'solicitudes_acceso' => $solicitudes,
-        'entregas_por_revisar' => (int) $por_revisar['n'],
-        'decisiones_en_direccion' => (int) $a_direccion['n'],
-        'cierres_en_direccion' => (int) $cierres_direccion['n'],
-        'grupos_listos_para_cierre' => $listos,
-        'lotes_con_discrepancias' => (int) $con_discrepancias['n'],
-    ]);
-}
-
 /** Campos recapturados de un grupo: valores que Coordinación escribió por un docente (CA-11). */
 function recalcular_recaptura(int $grupo_id): void
 {

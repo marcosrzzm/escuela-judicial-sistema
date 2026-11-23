@@ -14,6 +14,8 @@ function datos_de_sesion(array $u): array
         'es_sistema' => $u['es_sistema'],
         'permisos' => $u['permisos'],
         'debe_cambiar_clave' => $u['debe_cambiar_clave'],
+        'alumno_id' => $u['alumno_id'] === null ? null : (int) $u['alumno_id'],
+        'preferencia_tema' => $u['preferencia_tema'] ?? 'claro',
         'solo_lectura' => $u['solo_lectura'] ?? false,
         'actor_real' => $u['actor_real'] ?? null,
         'datos_ficticios' => DATOS_FICTICIOS,

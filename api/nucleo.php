@@ -178,7 +178,7 @@ function token_de_cookie(): ?string
 function cargar_usuario(int $id): ?array
 {
     $u = fila(
-        'SELECT u.id, u.nombre, u.correo, u.rol, u.debe_cambiar_clave, r.nombre AS rol_nombre, r.base, r.es_sistema, r.permisos
+        'SELECT u.id, u.nombre, u.correo, u.rol, u.debe_cambiar_clave, u.preferencia_tema, u.alumno_id, r.nombre AS rol_nombre, r.base, r.es_sistema, r.permisos
          FROM usuario u JOIN rol r ON r.clave = u.rol AND r.estado = \'activo\'
          WHERE u.id = ? AND u.estado = \'activo\'',
         [$id]

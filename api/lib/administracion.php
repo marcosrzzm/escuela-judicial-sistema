@@ -40,8 +40,8 @@ function usuario_para_bitacora(array $u): array
 function ruta_usuarios(): never
 {
     $u = exigir_permiso('usuario', 'ver');
-    // Dirección consulta las cuentas pero no ve sus correos: esos solo son de Coordinación (especificación, 10.7).
-    $con_correo = $u['es_sistema'] && $u['base'] === 'coordinacion';
+    // Coordinación y Dirección (roles del sistema) ven los correos de las cuentas (especificación, 10.7, regla 6).
+    $con_correo = $u['es_sistema'] && in_array($u['base'], ['coordinacion', 'direccion'], true);
     $donde = ['1 = 1'];
     $p = [];
     $q = trim((string) ($_GET['q'] ?? ''));
@@ -75,11 +75,11 @@ function ruta_usuarios(): never
     responder(200, ['filas' => $filas]);
 }
 
-function rol_activo_o_422(string $clave): array
+function rol_activo_o_422(string $clave, bool $permitir_alumno = false): array
 {
     $r = fila('SELECT clave, base FROM rol WHERE clave = ? AND estado = \'activo\'', [$clave]);
-    if ($r === null) {
-        error_http(422, 'Elige un rol activo de la lista.', ['rol' => 'Elige un rol activo.']);
+    if ($r === null || ($r['base'] === 'alumno' && !$permitir_alumno)) {
+        error_http(422, 'Elige un rol activo de la lista. Las cuentas de alumno se crean con "Invitar al alumno".', ['rol' => 'Elige un rol activo.']);
     }
     return $r;
 }
@@ -126,7 +126,11 @@ function ruta_editar_usuario(array $a): never
     $d = cuerpo_json();
     $nombre = texto($d, 'nombre', 120, 'El nombre');
     $correo = correo_valido($d);
-    $rol = rol_activo_o_422(texto($d, 'rol', 20, 'El rol'));
+    $era_alumno = (fila('SELECT rol FROM usuario WHERE id = ?', [$id])['rol'] ?? '') === 'alumno';
+    $rol = rol_activo_o_422(texto($d, 'rol', 20, 'El rol'), $era_alumno);
+    if ($era_alumno && $rol['clave'] !== 'alumno') {
+        error_http(422, 'Una cuenta de alumno no cambia de rol.', ['rol' => 'No se puede cambiar el rol de una cuenta de alumno.']);
+    }
     $estado = una_de($d, 'estado', ['activo', 'inactivo'], 'El estado');
 
     transaccion(function () use ($id, $nombre, $correo, $rol, $estado): void {
@@ -222,7 +226,7 @@ function ruta_roles(): never
         $f['permisos'] = permisos_de_rol($f['base'], $f['es_sistema'], $f['permisos']);
     }
     $techos = [];
-    foreach (array_keys(MATRIZ_PERMISOS) as $base) {
+    foreach (array_diff(array_keys(MATRIZ_PERMISOS), ['alumno']) as $base) {
         $techos[$base] = techo_de_base($base);
     }
     responder(200, ['filas' => $filas, 'techos' => $techos]);
@@ -250,7 +254,7 @@ function ruta_crear_rol(): never
     $admin = exigir_admin('rol', 'crear');
     $d = cuerpo_json();
     $nombre = texto($d, 'nombre', 80, 'El nombre');
-    $base = una_de($d, 'base', array_keys(MATRIZ_PERMISOS), 'El rol base');
+    $base = una_de($d, 'base', array_values(array_diff(array_keys(MATRIZ_PERMISOS), ['alumno'])), 'El rol base');
     $permisos = permisos_validos($base, $d['permisos'] ?? null);
     if (fila('SELECT id FROM rol WHERE LOWER(nombre) = ?', [mb_strtolower($nombre)]) !== null) {
         error_http(422, 'Ya existe un rol con ese nombre.', ['nombre' => 'Ese nombre ya existe.']);
@@ -383,6 +387,13 @@ function grupo_de_cuerpo(array $d): array
     return [$periodo, texto($d, 'clave', 20, 'La clave'), texto($d, 'programa', 120, 'El programa'), texto($d, 'turno', 20, 'El turno')];
 }
 
+/** Fecha opcional: vacía o ausente es null; si viene, debe ser válida. */
+function fecha_opcional(array $d, string $campo, string $etiqueta): ?string
+{
+    $v = $d[$campo] ?? null;
+    return $v === null || $v === '' ? null : fecha_valida($d, $campo, $etiqueta);
+}
+
 function ruta_crear_grupo(): never
 {
     exigir_permiso('grupo', 'crear');
@@ -390,8 +401,9 @@ function ruta_crear_grupo(): never
     if (fila('SELECT id FROM grupo WHERE periodo_id = ? AND clave = ?', [$periodo['id'], $clave]) !== null) {
         error_http(422, "Ya existe el grupo $clave en el periodo {$periodo['nombre']}.", ['clave' => 'Esa clave ya existe en el periodo.']);
     }
-    $id = insertar('grupo', ['periodo_id' => $periodo['id'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => 'activo']);
-    registrar_bitacora('grupo', $id, 'alta', null, ['periodo' => $periodo['nombre'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => 'activo']);
+    $cierre = fecha_opcional(cuerpo_json(), 'fecha_cierre_prevista', 'La fecha de cierre prevista');
+    $id = insertar('grupo', ['periodo_id' => $periodo['id'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => 'activo', 'fecha_cierre_prevista' => $cierre]);
+    registrar_bitacora('grupo', $id, 'alta', null, ['periodo' => $periodo['nombre'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => 'activo', 'fecha_cierre_prevista' => $cierre]);
     responder(200, ['id' => $id]);
 }
 
@@ -399,7 +411,7 @@ function ruta_editar_grupo(array $a): never
 {
     exigir_permiso('grupo', 'modificar');
     $id = (int) $a['id'];
-    $antes = fila('SELECT g.periodo_id, p.nombre AS periodo, g.clave, g.programa, g.turno, g.estado FROM grupo g JOIN periodo p ON p.id = g.periodo_id WHERE g.id = ?', [$id]);
+    $antes = fila('SELECT g.periodo_id, p.nombre AS periodo, g.clave, g.programa, g.turno, g.estado, g.fecha_cierre_prevista FROM grupo g JOIN periodo p ON p.id = g.periodo_id WHERE g.id = ?', [$id]);
     if ($antes === null) {
         error_http(404, 'Ese grupo ya no existe.');
     }
@@ -415,11 +427,12 @@ function ruta_editar_grupo(array $a): never
             error_http(409, 'El grupo ya tiene lista o asignaciones: no se le cambia el periodo. Crea un grupo nuevo en el otro periodo.');
         }
     }
-    ejecutar('UPDATE grupo SET periodo_id = ?, clave = ?, programa = ?, turno = ?, estado = ? WHERE id = ?', [$periodo['id'], $clave, $programa, $turno, $estado, $id]);
+    $cierre = array_key_exists('fecha_cierre_prevista', $d) ? fecha_opcional($d, 'fecha_cierre_prevista', 'La fecha de cierre prevista') : $antes['fecha_cierre_prevista'];
+    ejecutar('UPDATE grupo SET periodo_id = ?, clave = ?, programa = ?, turno = ?, estado = ?, fecha_cierre_prevista = ? WHERE id = ?', [$periodo['id'], $clave, $programa, $turno, $estado, $cierre, $id]);
     registrar_bitacora(
         'grupo', $id, 'modificar',
-        ['periodo' => $antes['periodo'], 'clave' => $antes['clave'], 'programa' => $antes['programa'], 'turno' => $antes['turno'], 'estado' => $antes['estado']],
-        ['periodo' => $periodo['nombre'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => $estado]
+        ['periodo' => $antes['periodo'], 'clave' => $antes['clave'], 'programa' => $antes['programa'], 'turno' => $antes['turno'], 'estado' => $antes['estado'], 'fecha_cierre_prevista' => $antes['fecha_cierre_prevista']],
+        ['periodo' => $periodo['nombre'], 'clave' => $clave, 'programa' => $programa, 'turno' => $turno, 'estado' => $estado, 'fecha_cierre_prevista' => $cierre]
     );
     responder(200, ['id' => $id]);
 }
@@ -469,15 +482,16 @@ function ruta_crear_asignacion(): never
     }
     $doc = docente_valido($d);
     exigir_grupo_abierto((int) $g['id']);
+    $limite = fecha_opcional($d, 'fecha_limite_entrega', 'La fecha límite de entrega');
     try {
-        $id = insertar('asignacion_docente', ['grupo_id' => $g['id'], 'materia_id' => $m['id'], 'docente_id' => $doc['id']]);
+        $id = insertar('asignacion_docente', ['grupo_id' => $g['id'], 'materia_id' => $m['id'], 'docente_id' => $doc['id'], 'fecha_limite_entrega' => $limite]);
     } catch (PDOException $e) {
         if (violacion_unica($e)) {
             error_http(409, "El grupo {$g['clave']} ya tiene asignada la materia {$m['nombre']}. Cambia su docente en lugar de crear otra.");
         }
         throw $e;
     }
-    registrar_bitacora('asignacion_docente', $id, 'alta', null, ['grupo' => $g['clave'], 'periodo' => $g['periodo'], 'materia' => $m['nombre'], 'docente' => $doc['nombre']]);
+    registrar_bitacora('asignacion_docente', $id, 'alta', null, ['grupo' => $g['clave'], 'periodo' => $g['periodo'], 'materia' => $m['nombre'], 'docente' => $doc['nombre'], 'fecha_limite_entrega' => $limite]);
     responder(200, ['id' => $id]);
 }
 

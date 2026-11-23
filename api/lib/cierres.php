@@ -15,7 +15,7 @@ function grupo_o_404(int $id): array
 function estado_asignaciones(int $grupo_id): array
 {
     $filas = filas(
-        'SELECT a.id, m.nombre AS materia, d.nombre AS docente
+        'SELECT a.id, m.clave AS materia_clave, m.nombre AS materia, d.nombre AS docente, a.fecha_limite_entrega
          FROM asignacion_docente a JOIN materia m ON m.id = a.materia_id JOIN usuario d ON d.id = a.docente_id
          WHERE a.grupo_id = ? ORDER BY m.nombre',
         [$grupo_id]
@@ -167,6 +167,7 @@ function ruta_enviar_autorizacion(array $a): never
         error_http(409, "El cierre versión {$c['version']} de {$c['grupo']} no se puede enviar a Dirección: debe estar preparado y marcado como que requiere autorización.");
     }
     ejecutar('UPDATE cierre SET estado = \'en_autorizacion\' WHERE id = ?', [$c['id']]);
+    avisar_a_permiso('cierre', 'modificar', 'cierre_en_autorizacion', "Un cierre espera tu autorización: {$c['grupo']} ({$c['periodo']}).", '/autorizaciones', ['direccion']);
     registrar_bitacora('cierre', (int) $c['id'], 'enviar_autorizacion', ['estado' => 'preparado'], ['estado' => 'en_autorizacion', 'grupo' => $c['grupo'], 'version' => (int) $c['version']]);
     responder(200, ['id' => (int) $c['id'], 'estado' => 'en_autorizacion']);
 }
@@ -185,9 +186,11 @@ function ruta_resolver_cierre(array $a): never
     if ($res === 'aprobar') {
         verificar_entregas_vigentes($c);
         marcar_aprobado($c, (int) $u['id'], $motivo === '' ? null : $motivo);
+        avisar((int) $c['preparado_por'], 'cierre_resuelto', "Dirección aprobó el cierre de {$c['grupo']} ({$c['periodo']}).", "/grupos/{$c['grupo_id']}/cierre");
         responder(200, ['id' => (int) $c['id'], 'estado' => 'aprobado']);
     }
     ejecutar('UPDATE cierre SET estado = \'devuelto\', motivo = ? WHERE id = ?', [$motivo, $c['id']]);
+    avisar((int) $c['preparado_por'], 'cierre_resuelto', "Dirección devolvió el cierre de {$c['grupo']} ({$c['periodo']}).", "/grupos/{$c['grupo_id']}/cierre");
     registrar_bitacora('cierre', (int) $c['id'], 'devolver', ['estado' => 'en_autorizacion'], ['estado' => 'devuelto', 'grupo' => $c['grupo'], 'version' => (int) $c['version']], $motivo);
     responder(200, ['id' => (int) $c['id'], 'estado' => 'devuelto']);
 }
@@ -240,6 +243,7 @@ function ruta_generar_lote(array $a): never
             $n++;
         }
         registrar_bitacora('lote_entrega', $lid, 'generar', null, ['periodo' => $c['periodo'], 'grupo' => $c['grupo'], 'version_cierre' => (int) $c['version'], 'boletas' => $n]);
+        avisar_a_permiso('registro_carga_externa', 'crear', 'lote_por_recibir', "Hay un lote por recibir: {$c['grupo']} ({$c['periodo']}), cierre versión {$c['version']}.", '/lotes');
         return $lid;
     });
     responder(200, ['id' => $id]);
@@ -288,6 +292,16 @@ function ruta_lotes(): never
     responder(200, ['filas' => $filas]);
 }
 
+/** Celda de CSV entre comillas; un texto que empieza como fórmula se neutraliza. */
+function celda_csv(mixed $v): string
+{
+    $t = $v === null ? '' : (string) $v;
+    if (preg_match('/^[=+\-@\t\r]/', $t) === 1) {
+        $t = "'" . $t;
+    }
+    return '"' . str_replace('"', '""', $t) . '"';
+}
+
 function ruta_csv_lote(array $a): never
 {
     exigir_permiso('lote_entrega', 'ver');
@@ -297,13 +311,7 @@ function ruta_csv_lote(array $a): never
     }
     $c = cierre_o_404((int) $l['cierre_id']);
     $et = ['acreditada' => 'acreditada', 'no_acreditada' => 'no acreditada', 'sin_derecho' => 'sin derecho', 'sin_entrega' => 'sin entrega'];
-    $celda = static function (mixed $v): string {
-        $t = $v === null ? '' : (string) $v;
-        if (preg_match('/^[=+\-@\t\r]/', $t) === 1) {
-            $t = "'" . $t;
-        }
-        return '"' . str_replace('"', '""', $t) . '"';
-    };
+    $celda = celda_csv(...);
     $lineas = [implode(',', array_map($celda, ['matricula', 'nombre', 'materia', 'calificacion', 'estatus']))];
     foreach (datos_del_cierre($c) as $f) {
         $lineas[] = implode(',', array_map($celda, [$f['identificador'], $f['nombre'], $f['materia'], $f['valor'] === null ? '' : number_format((float) $f['valor'], 1, '.', ''), $et[$f['estatus']] ?? $f['estatus']]));

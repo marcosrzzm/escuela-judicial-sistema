@@ -1,4 +1,4 @@
-// Criterios de aceptación CA-01 a CA-24 (especificación, sección 7) contra la API local.
+// Criterios de aceptación CA-01 a CA-31 (especificación, sección 7) contra la API local.
 // Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
 // Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
 //   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
@@ -526,7 +526,8 @@ ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente so
   igual((await dir.post('/usuarios', { nombre: 'X', correo: 'x@prueba.local', rol: 'docente' })).estado, 403, 'Dirección crea una cuenta')
   igual((await dir.post(`/ver-como/${propio.alumno_id}`)).estado, 403, 'Dirección usa ver como')
   const cuentasDir = (await dir.get('/usuarios')).datos.filas
-  afirmar(cuentasDir.length > 0 && cuentasDir.every((u) => u.correo === null), 'Dirección ve correos de las cuentas')
+  afirmar(cuentasDir.length > 0 && cuentasDir.every((u) => typeof u.correo === 'string' && u.correo.includes('@')), 'Dirección no ve los correos de las cuentas')
+  igual((await docA.get('/usuarios')).estado, 403, 'Docente pide cuentas')
   igual((await aux.get('/usuarios')).estado, 403, 'Auxiliar pide cuentas')
   igual((await carga.get('/alumnos')).estado, 403, 'Carga externa pide alumnos')
   const lotes = (await carga.get('/lotes')).datos.filas
@@ -534,6 +535,192 @@ ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente so
   const ver = (await coord.get('/usuarios')).datos.filas
   afirmar(ver.some((u) => u.correo), 'Coordinación dejó de ver los correos')
 })
+
+// --- Plataforma escolar (sección 11) y cuenta de Alumno (11.8) -----------------------------------------
+
+const avisosDe = async (c) => (await c.get('/avisos')).datos
+
+ca('CA-25', 'Tablero y Por hacer por rol, sin nada fuera de su alcance', async () => {
+  const tc = (await coord.get('/tablero')).datos
+  afirmar(tc.tarjetas.length >= 2 && tc.tarjetas.every((t) => t.tipo === 'grupo'), 'Coordinación: tarjetas por grupo')
+  afirmar(Array.isArray(tc.por_hacer) && Array.isArray(tc.actividad), 'Coordinación: faltan Por hacer o actividad')
+  const ta = (await docA.get('/tablero')).datos
+  afirmar(ta.tarjetas.length >= 1 && ta.tarjetas.every((t) => t.tipo === 'asignacion'), 'Docente A: tarjetas por asignación')
+  afirmar(ta.tarjetas.some((t) => t.id === asigA.id) && !ta.tarjetas.some((t) => t.id === asigB.id), 'Docente A ve una asignación ajena')
+  afirmar(!JSON.stringify(ta).includes(`/asignaciones/${asigB.id}`), 'Docente A: Por hacer o actividad apuntan a una asignación ajena')
+  afirmar(ta.por_hacer.every((i) => ['fecha_limite', 'entrega_devuelta'].includes(i.tipo)), 'Docente A: Por hacer de otro rol')
+  const td = (await dir.get('/tablero')).datos
+  afirmar(td.tarjetas.every((t) => t.tipo === 'grupo'), 'Dirección: tarjetas por grupo')
+  afirmar(td.por_hacer.every((i) => ['autorizaciones', 'cierres_autorizar', 'fecha_limite'].includes(i.tipo)), 'Dirección: Por hacer de otro rol')
+  const tx = (await aux.get('/tablero')).datos
+  afirmar(tx.tarjetas.length >= 1 && tx.tarjetas.every((t) => t.tipo === 'grupo' && t.id === g1.id), 'Auxiliar: solo sus grupos')
+  igual(tx.por_hacer, [], 'Auxiliar: no tiene Por hacer')
+  igual(tx.actividad, [], 'Auxiliar: no tiene actividad')
+  const tg = (await carga.get('/tablero')).datos
+  igual(tg.tarjetas, [], 'Carga externa: sin tarjetas')
+  afirmar(tg.por_hacer.every((i) => i.tipo.startsWith('lotes_')), 'Carga externa: Por hacer de otro rol')
+  igual(tg.actividad, [], 'Carga externa: sin actividad')
+  const crudo = JSON.stringify([ta, td, tx, tg])
+  afirmar(!/Motivo reservado|referencia_evidencia|"motivo"/.test(crudo), 'El tablero trae motivos o evidencia')
+})
+
+ca('CA-26', 'Calendario por alcance: cada docente ve solo sus fechas límite', async () => {
+  const ea = (await docA.get('/calendario')).datos.eventos
+  const eb = (await ctx.docBNuevo.get('/calendario')).datos.eventos
+  afirmar(ea.some((e) => e.id === `entrega-${asigA.id}`), 'Docente A no ve su fecha límite')
+  afirmar(!ea.some((e) => e.id === `entrega-${asigB.id}`), 'Docente A ve la fecha límite de Docente B')
+  afirmar(eb.some((e) => e.id === `entrega-${asigB.id}`) && !eb.some((e) => e.id === `entrega-${asigA.id}`), 'Docente B ve fechas que no son suyas')
+  igual((await docA.get(`/calendario?grupo_id=${g2.id}`)).estado, 403, 'Docente A filtra por un grupo ajeno')
+  const ec = (await coord.get('/calendario')).datos.eventos.map((e) => e.id)
+  afirmar(ec.includes(`entrega-${asigA.id}`) && ec.includes(`entrega-${asigB.id}`), 'Coordinación no ve todas las fechas')
+  const ex = (await aux.get('/calendario')).datos.eventos
+  afirmar(!ex.some((e) => e.tipo === 'entrega'), 'Auxiliar ve fechas de entrega')
+  const eg = (await carga.get('/calendario')).datos.eventos
+  afirmar(eg.every((e) => e.tipo.startsWith('periodo_')), 'Carga externa ve más que los periodos')
+  const soloG1 = (await coord.get(`/calendario?grupo_id=${g1.id}`)).datos.eventos
+  afirmar(soloG1.every((e) => e.grupo_id === null || e.grupo_id === g1.id), 'El filtro por grupo deja pasar otro grupo')
+})
+
+/** Deja la entrega vigente de la asignación de Docente A en "enviada" (la envía si hace falta). */
+async function entregaEnviadaDeA(valor = 9.0) {
+  let det = (await docA.get(`/asignaciones/${asigA.id}`)).datos
+  if (!det.entrega) {
+    const e = await docA.post(`/asignaciones/${asigA.id}/entrega`)
+    afirmar(e.estado === 200, `No se pudo abrir la entrega: ${e.estado}`)
+    det = (await docA.get(`/asignaciones/${asigA.id}`)).datos
+  }
+  if (det.entrega.estado === 'borrador') {
+    const items = det.alumnos.filter((a) => !a.bloqueado).map((a) => ({ alumno_id: a.alumno_id, valor }))
+    const env = await docA.post(`/entregas/${det.entrega.id}/enviar`, { calificaciones: items })
+    afirmar(env.estado === 200, `No se pudo enviar: ${env.estado} ${JSON.stringify(env.datos)}`)
+  } else if (det.entrega.estado === 'aceptada') {
+    let r = await coord.put(`/entregas/${det.entrega.id}/reabrir`, { motivo: 'Motivo reservado de reapertura' })
+    if (r.estado === 409) {
+      // El cierre aprobado de POS-01 pide una versión nueva antes de reabrir.
+      const c = await coord.post(`/grupos/${g1.id}/cierres`, { motivo: 'Versión nueva para la prueba', excepcion: true, motivo_excepcion: 'Prueba de plataforma' })
+      afirmar(c.estado === 200, `No se pudo preparar el cierre nuevo: ${c.estado} ${JSON.stringify(c.datos)}`)
+      r = await coord.put(`/entregas/${det.entrega.id}/reabrir`, { motivo: 'Motivo reservado de reapertura' })
+    }
+    afirmar(r.estado === 200, `No se pudo reabrir: ${r.estado} ${JSON.stringify(r.datos)}`)
+    return entregaEnviadaDeA(valor)
+  }
+  return (await docA.get(`/asignaciones/${asigA.id}`)).datos.entrega
+}
+
+ca('CA-27', 'Devolver crea un aviso solo para Docente A, sin datos sensibles; marcar como leído funciona', async () => {
+  const e = await entregaEnviadaDeA()
+  igual(e.estado, 'enviada', 'La entrega debe estar enviada')
+  const antes = { a: await avisosDe(docA), b: await avisosDe(ctx.docBNuevo), c: await avisosDe(coord) }
+  const motivo = 'Motivo reservado CA-27 con datos delicados'
+  igual((await coord.put(`/entregas/${e.id}/devolver`, { motivo })).estado, 200, 'Devolver')
+  const despues = { a: await avisosDe(docA), b: await avisosDe(ctx.docBNuevo), c: await avisosDe(coord) }
+  const nuevo = despues.a.filas.filter((f) => !antes.a.filas.some((x) => x.id === f.id) && f.tipo === 'entrega_devuelta')
+  igual(nuevo.map((f) => f.tipo), ['entrega_devuelta'], 'Docente A recibe un aviso de devolución')
+  afirmar(!JSON.stringify(nuevo).includes('Motivo reservado') && !/\d\.\d/.test(nuevo[0].texto), 'El aviso trae el motivo o una calificación')
+  afirmar(nuevo[0].enlace.startsWith('/'), 'El enlace del aviso no es una ruta del sistema')
+  igual(despues.b.filas.length, antes.b.filas.length, 'Docente B recibió avisos')
+  afirmar(!despues.c.filas.some((f) => f.tipo === 'entrega_devuelta'), 'Coordinación recibió el aviso del docente')
+  afirmar(despues.a.no_leidos > antes.a.no_leidos, 'El contador sube')
+  igual((await ctx.docBNuevo.put(`/avisos/${nuevo[0].id}/leer`)).estado, 403, 'Docente B marca el aviso de otro')
+  const leido = await docA.put(`/avisos/${nuevo[0].id}/leer`)
+  igual([leido.estado, leido.datos.no_leidos], [200, despues.a.no_leidos - 1], 'Marcar como leído baja el contador')
+  igual((await docA.put('/avisos/leer-todos')).datos.no_leidos, 0, 'Marcar todos')
+  igual((await docA.get('/avisos/resumen')).datos.no_leidos, 0, 'El resumen coincide')
+})
+
+ca('CA-28', 'La sábana de calificaciones es de Coordinación y Dirección; los demás reciben 403', async () => {
+  for (const [c, nombre] of [[coord, 'Coordinación'], [dir, 'Dirección']]) {
+    const r = await c.get(`/grupos/${g1.id}/calificaciones`)
+    igual(r.estado, 200, `${nombre} pide la sábana`)
+    afirmar(r.datos.alumnos.length >= 5 && r.datos.materias.length >= 1, `${nombre}: sábana vacía`)
+    const csv = await c.get(`/grupos/${g1.id}/calificaciones/csv`)
+    igual(csv.estado, 200, `${nombre} pide el CSV`)
+    afirmar(typeof csv.datos === 'string' && csv.datos.includes('matricula'), `${nombre}: el CSV no es un CSV`)
+  }
+  for (const [c, nombre] of [[docA, 'Docente'], [aux, 'Auxiliar'], [carga, 'Carga externa']]) {
+    igual((await c.get(`/grupos/${g1.id}/calificaciones`)).estado, 403, `${nombre} pide la sábana`)
+    igual((await c.get(`/grupos/${g1.id}/calificaciones/csv`)).estado, 403, `${nombre} pide el CSV`)
+    igual((await c.get(`/grupos/${g1.id}/resumen`)).estado, 403, `${nombre} pide el resumen`)
+  }
+})
+
+if (!REMOTO) {
+  const alumno = await entrar('alumno@prueba.local')
+  const valeria = (await alumno.get('/sesion')).datos
+  const materiasDe = (t) => t.tarjetas.filter((x) => x.grupo === 'POS-01')
+
+  /** Valeria con una entrega no aceptada, luego aceptada (una sola vez para CA-29 y CA-31). */
+  async function publicarNota() {
+    if (ctx.publicada) return ctx.publicada
+    const e = await entregaEnviadaDeA(9.5)
+    const antes = await alumno.get('/tablero')
+    const historialAntes = (await alumno.get(`/alumnos/${valeria.alumno_id}/historial`)).datos
+    const avisosAntes = await avisosDe(alumno)
+    igual((await coord.put(`/entregas/${e.id}/aceptar`)).estado, 200, 'Aceptar')
+    return (ctx.publicada = { antes: antes.datos, historialAntes, avisosAntes })
+  }
+
+  ca('CA-29', 'El alumno ve solo sus calificaciones aceptadas; borradores y enviadas no existen para él', async () => {
+    igual(valeria.base, 'alumno', 'Rol de la cuenta')
+    // Antes de aceptar: con la entrega enviada, el alumno no ve ninguna nota de esa materia.
+    const p = await publicarNota()
+    const derecho = materiasDe(p.antes).find((t) => t.materia === 'Derecho Procesal')
+    afirmar(derecho, 'El alumno no ve su materia')
+    igual(derecho.calificacion, null, 'Una entrega enviada es visible para el alumno')
+    afirmar(!p.historialAntes.periodos.some((x) => x.periodo === '2026-B'), 'El historial muestra un periodo sin entrega aceptada')
+    const despues = (await alumno.get('/tablero')).datos
+    const nota = materiasDe(despues).find((t) => t.materia === 'Derecho Procesal').calificacion
+    igual(nota.valor, 9.5, 'Calificación aceptada')
+    const h = (await alumno.get(`/alumnos/${valeria.alumno_id}/historial`)).datos
+    afirmar(h.periodos.some((x) => x.periodo === '2026-B' && x.materias.length > 0), 'La boleta no trae el periodo actual')
+    afirmar(h.alumno.id === valeria.alumno_id, 'Historial de otra persona')
+    afirmar(!/motivo|evidencia/i.test(JSON.stringify([despues, h])), 'El alumno ve motivo o evidencia')
+    afirmar(despues.tarjetas.every((t) => t.tipo === 'materia' && ['con_derecho', 'sin_derecho', 'pendiente', null].includes(t.derecho)), 'Forma del tablero del alumno')
+    igual(despues.por_hacer, [], 'El alumno no tiene Por hacer')
+    const cal = (await alumno.get('/calendario')).datos.eventos
+    afirmar(!cal.some((e) => e.tipo === 'entrega'), 'El alumno ve fechas de entrega de los docentes')
+    // Coordinación lo ve igual con "Ver como".
+    const id = (await coord.get('/usuarios?q=alumno@prueba.local')).datos.filas[0].id
+    igual((await coord.post(`/ver-como/${id}`)).estado, 200, 'Ver como alumno')
+    const visto = (await coord.get('/tablero')).datos
+    afirmar(visto.tarjetas.every((t) => t.tipo === 'materia'), 'Ver como alumno no muestra su tablero')
+    igual((await coord.post('/ver-como/salir')).estado, 200, 'Salir de la vista')
+  })
+
+  ca('CA-30', 'El alumno no ve a otros alumnos, listas, bitácora ni administración', async () => {
+    const otro = listaG1.find((a) => a.alumno_id !== valeria.alumno_id)
+    for (const ruta of [
+      `/alumnos/${otro.alumno_id}/historial`, `/grupos/${g1.id}/lista`, '/bitacora', '/alumnos?q=a', '/usuarios', '/lotes',
+      '/asignaciones', `/asignaciones/${asigA.id}`, `/grupos/${g1.id}/calificaciones`, `/grupos/${g1.id}/resumen`, `/grupos/${g1.id}/cierre`, '/autorizaciones', '/metricas', '/materias',
+    ]) {
+      igual((await alumno.get(ruta)).estado, 403, `El alumno pide ${ruta}`)
+    }
+    igual((await alumno.post(`/grupos/${g1.id}/inscripciones`, { identificador: 'X-9', nombre: 'X', observacion: 'x' })).estado, 403, 'El alumno da de alta')
+    igual((await alumno.post(`/alumnos/${otro.alumno_id}/cuenta`, { correo: 'otro@prueba.local' })).estado, 403, 'El alumno crea cuentas')
+    const grupos = (await alumno.get('/grupos')).datos.filas
+    afirmar(grupos.every((g) => g.clave === 'POS-01' && g.periodo === '2026-B' || g.periodo === '2026-A'), 'El alumno ve grupos que no son suyos')
+    afirmar(!grupos.some((g) => g.id === g2.id), 'El alumno ve POS-02')
+  })
+
+  ca('CA-31', 'Aceptar una entrega avisa al alumno con cuenta, sin el valor de la calificación', async () => {
+    const p = await publicarNota()
+    const despues = await avisosDe(alumno)
+    const nuevos = despues.filas.filter((f) => !p.avisosAntes.filas.some((x) => x.id === f.id))
+    igual(nuevos.map((f) => f.tipo), ['calificaciones_publicadas'], 'Avisos nuevos del alumno')
+    afirmar(!/\d\.\d|9/.test(nuevos[0].texto.replace(/\(.*?\)/, '')), 'El aviso trae la calificación')
+    afirmar(nuevos[0].enlace.startsWith('/'), 'Enlace del aviso')
+    afirmar(!(await avisosDe(ctx.docBNuevo)).filas.some((f) => f.tipo === 'calificaciones_publicadas'), 'Un docente recibió el aviso del alumno')
+    // Solo la cuenta ligada recibe avisos: la de otro alumno no existe, así que nadie más tiene este tipo de aviso.
+    afirmar(!(await avisosDe(coord)).filas.some((f) => f.tipo === 'calificaciones_publicadas'), 'Coordinación recibió el aviso del alumno')
+    // Coordinación invita a un alumno que aún no tiene cuenta; no hay segunda cuenta para el mismo alumno.
+    const otro = listaG1.find((a) => a.alumno_id !== valeria.alumno_id)
+    const inv = await coord.post(`/alumnos/${otro.alumno_id}/cuenta`, { correo: 'alumno.dos@prueba.local' })
+    igual(inv.estado, 200, 'Invitar al alumno')
+    igual((await coord.post(`/alumnos/${otro.alumno_id}/cuenta`, { correo: 'alumno.tres@prueba.local' })).estado, 409, 'Segunda cuenta del mismo alumno')
+    igual((await docA.post(`/alumnos/${otro.alumno_id}/cuenta`, { correo: 'x@prueba.local' })).estado, 403, 'Docente invita alumnos')
+    igual((await coord.post('/usuarios', { nombre: 'X', correo: 'x2@prueba.local', rol: 'alumno' })).estado, 422, 'Crear una cuenta de alumno por Usuarios')
+  })
+}
 
 // CA-21 y CA-22 leen el enlace del archivo que la API deja en seguridad/correos-dev/ cuando no hay llave de Resend (solo local).
 const CORREOS = join(raiz, 'seguridad/correos-dev')

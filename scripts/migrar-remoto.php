@@ -31,7 +31,7 @@ $pdo = new PDO("mysql:host=127.0.0.1;port=" . ($c['MYSQL_PUERTO'] ?? 3306) . ";d
 $cuentas = fn () => ['usuarios' => (int) $pdo->query('SELECT COUNT(*) FROM usuario')->fetchColumn(), 'alumnos' => (int) $pdo->query('SELECT COUNT(*) FROM alumno')->fetchColumn(), 'bitacora' => (int) $pdo->query('SELECT COUNT(*) FROM bitacora_cambio')->fetchColumn()];
 $existe = fn (string $tabla) => (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '$tabla'")->fetchColumn() === 1;
 // Una migración está pendiente mientras no exista la tabla que crea.
-$migraciones = ['03_administracion.sql' => 'rol', '04_acceso_por_correo.sql' => 'token_acceso'];
+$migraciones = ['03_administracion.sql' => 'rol', '04_acceso_por_correo.sql' => 'token_acceso', '05_plataforma.sql' => 'aviso'];
 if ($accion === 'respaldo') {
     header('Content-Type: text/plain; charset=utf-8');
     $q = static fn (string $n): string => '`' . str_replace('`', '``', $n) . '`';

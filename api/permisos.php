@@ -78,6 +78,14 @@ const MATRIZ_PERMISOS = [
         'alumno' => ['ver'],
         'inscripcion_grupo' => ['ver'],
     ],
+    // Alumno (sección 11.8): solo sus propios datos; cada endpoint comprueba su alumno_id además del permiso.
+    'alumno' => [
+        'periodo' => ['ver'],
+        'grupo' => ['ver'],
+        'decision_evaluacion' => ['ver'],
+        'calificacion' => ['ver'],
+        'pendiente_academico' => ['ver'],
+    ],
 ];
 
 /**

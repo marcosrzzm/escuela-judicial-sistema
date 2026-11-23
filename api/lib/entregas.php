@@ -83,14 +83,14 @@ function resumen_entrega(?array $e): ?array
 
 // --- Asignaciones ------------------------------------------------------------------
 
-function ruta_asignaciones(): never
+/** Asignaciones que el rol puede ver (Docente, solo las suyas), con su entrega vigente. Sin periodo, las del periodo abierto. */
+function asignaciones_en_alcance(array $u, ?int $periodo_id = null): array
 {
-    $u = exigir_permiso('asignacion_docente', 'ver');
     $donde = ['1 = 1'];
     $p = [];
-    if (isset($_GET['periodo_id'])) {
+    if ($periodo_id) {
         $donde[] = 'g.periodo_id = ?';
-        $p[] = (int) $_GET['periodo_id'];
+        $p[] = $periodo_id;
     } else {
         $donde[] = 'pe.estado = \'abierto\'';
     }
@@ -101,7 +101,8 @@ function ruta_asignaciones(): never
         denegar('asignaciones');
     }
     $asig = filas(
-        'SELECT a.id, a.grupo_id, g.clave AS grupo, g.periodo_id, pe.nombre AS periodo, m.nombre AS materia, d.nombre AS docente,
+        'SELECT a.id, a.grupo_id, g.clave AS grupo, g.programa, g.periodo_id, pe.nombre AS periodo, m.nombre AS materia, d.nombre AS docente,
+                a.fecha_limite_entrega,
                 (SELECT COUNT(*) FROM inscripcion_grupo i WHERE i.grupo_id = a.grupo_id AND i.estado = \'activa\') AS alumnos_activos
          FROM asignacion_docente a JOIN grupo g ON g.id = a.grupo_id JOIN periodo pe ON pe.id = g.periodo_id
          JOIN materia m ON m.id = a.materia_id JOIN usuario d ON d.id = a.docente_id
@@ -111,7 +112,13 @@ function ruta_asignaciones(): never
     foreach ($asig as &$a) {
         $a['entrega'] = resumen_entrega(entrega_vigente((int) $a['id']));
     }
-    responder(200, ['filas' => $asig]);
+    return $asig;
+}
+
+function ruta_asignaciones(): never
+{
+    $u = exigir_permiso('asignacion_docente', 'ver');
+    responder(200, ['filas' => asignaciones_en_alcance($u, isset($_GET['periodo_id']) ? (int) $_GET['periodo_id'] : null)]);
 }
 
 function ruta_asignacion(array $a): never
@@ -320,6 +327,7 @@ function ruta_enviar_entrega(array $a): never
             guardar_calificaciones($e, $asig, $items);
         }
         marcar_enviada($e, $asig, (int) $u['id']);
+        avisar_a_permiso('entrega_calificaciones', 'aceptar', 'entrega_por_revisar', "Hay una entrega por revisar: {$asig['materia']} ({$asig['grupo']}).", '/revision?estado=enviada');
     });
     registrar_bitacora('entrega_calificaciones', (int) $e['id'], 'enviar', ['estado' => 'borrador'], ['estado' => 'enviada', 'version' => (int) $e['version']]);
     responder(200, entrega_completa((int) $e['id']));
@@ -409,6 +417,7 @@ function ruta_aceptar(array $a): never
     transaccion(function () use ($e, $asig, $u): void {
         ejecutar('UPDATE entrega_calificaciones SET estado = \'aceptada\', fecha_revision = ?, revisado_por = ? WHERE id = ?', [ahora(), $u['id'], $e['id']]);
         aplicar_pendientes($asig, (int) $e['id'], (int) $e['version']);
+        avisar_alumnos_de_entrega((int) $e['id'], $asig);
         registrar_bitacora('entrega_calificaciones', (int) $e['id'], 'aceptar', ['estado' => 'enviada'], ['estado' => 'aceptada', 'version' => (int) $e['version'], 'materia' => $asig['materia'], 'grupo' => $asig['grupo']]);
     });
     responder(200, entrega_completa((int) $e['id']));
@@ -424,6 +433,7 @@ function ruta_devolver(array $a): never
     $nuevo = transaccion(function () use ($e, $asig, $u, $motivo): int {
         ejecutar('UPDATE entrega_calificaciones SET estado = \'devuelta\', fecha_revision = ?, revisado_por = ?, motivo = ? WHERE id = ?', [ahora(), $u['id'], $motivo, $e['id']]);
         $nuevo = nueva_version_borrador($e, $asig);
+        avisar((int) $asig['docente_id'], 'entrega_devuelta', "Te devolvieron la entrega de {$asig['materia']} ({$asig['grupo']}).", "/asignaciones/{$asig['id']}/calificaciones");
         registrar_bitacora('entrega_calificaciones', (int) $e['id'], 'devolver', ['estado' => 'enviada', 'version' => (int) $e['version']], ['estado' => 'devuelta', 'version_nueva' => (int) $e['version'] + 1, 'materia' => $asig['materia'], 'grupo' => $asig['grupo']], $motivo);
         return $nuevo;
     });
@@ -507,6 +517,9 @@ function ruta_crear_decision(array $a): never
         'referencia_evidencia' => $evid, 'responsable_id' => $u['id'], 'fecha' => ahora(),
     ]);
     registrar_bitacora('decision_evaluacion', $id, 'decidir', $previa === null ? null : ['resultado' => $previa['resultado']], ['alumno' => $alumno['identificador'], 'materia' => $asig['materia'], 'grupo' => $asig['grupo'], 'resultado' => $resultado], $motivo);
+    if ($resultado === 'requiere_autorizacion') {
+        avisar_a_permiso('decision_evaluacion', 'modificar', 'autorizacion_pendiente', "Hay una decisión que espera tu autorización: {$asig['materia']} ({$asig['grupo']}).", '/autorizaciones');
+    }
     responder(200, ['id' => $id]);
 }
 
@@ -560,5 +573,9 @@ function ruta_resolver_decision(array $a): never
         [$resolucion, $motivo, $u['id'], ahora(), $dec['id']]
     );
     registrar_bitacora('decision_evaluacion', (int) $dec['id'], $resolucion === 'autorizada' ? 'autorizar' : 'rechazar', ['resolucion_direccion' => null], ['resolucion_direccion' => $resolucion, 'alumno' => $dec['alumno']], $motivo);
+    $asig = cargar_asignacion((int) $dec['asignacion_id']);
+    if ($asig !== null) {
+        avisar((int) $dec['responsable_id'], 'decision_resuelta', 'Dirección ' . ($resolucion === 'autorizada' ? 'autorizó' : 'rechazó') . " un caso de derecho a evaluación: {$asig['materia']} ({$asig['grupo']}).", "/grupos/{$asig['grupo_id']}/derecho");
+    }
     responder(200, ['id' => (int) $dec['id'], 'resolucion' => $resolucion]);
 }

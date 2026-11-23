@@ -213,6 +213,7 @@ function ruta_olvide_clave(): never
         if ($por_correo < SOLICITUDES_POR_CORREO && $por_ip < SOLICITUDES_POR_IP_POR_HORA && $abierta === null) {
             $id = insertar('solicitud_restablecer', ['correo' => $correo, 'usuario_id' => $u['id'], 'ip' => $ip, 'creado_en' => ahora()]);
             registrar_bitacora('solicitud_acceso', $id, 'solicitud_creada', null, ['correo' => $correo], null, (int) $u['id']);
+            avisar_a_permiso('usuario', 'modificar', 'solicitud_acceso', 'Hay una solicitud de acceso por resolver.', '/usuarios', ['coordinacion']);
         }
     }
     usleep(random_int(100000, 300000));
