@@ -340,6 +340,7 @@ function DialogoGrupo({
       programa: grupo?.programa ?? '',
       turno: grupo?.turno ?? '',
       estado: (grupo?.estado as GrupoFormulario['estado']) ?? 'activo',
+      fecha_cierre_prevista: grupo?.fecha_cierre_prevista ?? '',
     },
   })
   const guardar = useAccion(
@@ -349,6 +350,7 @@ function DialogoGrupo({
         clave: v.clave,
         programa: v.programa,
         turno: v.turno,
+        fecha_cierre_prevista: v.fecha_cierre_prevista === '' ? null : v.fecha_cierre_prevista,
       }
       return grupo ? editarGrupo(grupo.id, { ...datos, estado: v.estado }) : crearGrupo(datos)
     },
@@ -391,6 +393,11 @@ function DialogoGrupo({
         registro={register('turno')}
         error={errors.turno?.message}
         placeholder="Matutino"
+      />
+      <CampoFecha
+        etiqueta="Cierre previsto (opcional)"
+        valor={watch('fecha_cierre_prevista')}
+        alCambiar={(v) => setValue('fecha_cierre_prevista', v)}
       />
       {grupo ? (
         <CampoSelect
@@ -470,9 +477,11 @@ function DialogoAsignacion({ periodoId, alCerrar }: { periodoId: number; alCerra
   const [grupoId, setGrupoId] = useState('')
   const [materiaId, setMateriaId] = useState('')
   const [docenteId, setDocenteId] = useState('')
+  const [limite, setLimite] = useState('')
   const guardar = useAccion(
     () =>
       crearAsignacion({
+        fecha_limite_entrega: limite === '' ? null : limite,
         grupo_id: Number(grupoId),
         materia_id: Number(materiaId),
         docente_id: Number(docenteId),
@@ -527,6 +536,11 @@ function DialogoAsignacion({ periodoId, alCerrar }: { periodoId: number; alCerra
               valor: String(d.id),
               etiqueta: d.nombre,
             }))}
+          />
+          <CampoFecha
+            etiqueta="Fecha límite de entrega (opcional)"
+            valor={limite}
+            alCambiar={setLimite}
           />
         </form>
         <DialogFooter>
@@ -626,6 +640,12 @@ function PestanaAsignaciones() {
           <span className="block text-xs text-ink-3">{a.docente}</span>
         </>
       ),
+    },
+    {
+      clave: 'fecha_limite_entrega',
+      encabezado: 'Fecha límite',
+      ocultarEnMovil: true,
+      render: (a) => (a.fecha_limite_entrega ? soloFecha(a.fecha_limite_entrega) : 'Sin fecha'),
     },
   ]
   return (

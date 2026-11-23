@@ -1,4 +1,4 @@
-import { FileUp, Printer, UserMinus, UserPlus } from 'lucide-react'
+import { FileUp, History, MailPlus, Printer, UserMinus, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { CampoSelect, CampoTexto } from '@/componentes/CampoFormulario'
+import { DialogoInvitarAlumno } from '@/componentes/DialogoInvitarAlumno'
 import { DialogoMotivo } from '@/componentes/DialogoMotivo'
 import { InsigniaEstado } from '@/componentes/Estados'
 import { ErrorDatos, Cargando } from '@/componentes/EstadoCarga'
@@ -33,6 +34,7 @@ import {
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
 import { resolverZod, soloFecha } from '@/lib/formulario'
+import { useSesion } from '@/lib/sesion'
 import { useTiempoActivo } from '@/lib/useTiempoActivo'
 
 function DialogoAlta({
@@ -292,7 +294,8 @@ function DialogoImportar({
   )
 }
 
-export function Grupos() {
+export function Personas() {
+  const { sesion } = useSesion()
   const sel = useSeleccionGrupo()
   const grupoId = sel.grupo?.id ?? null
   useTiempoActivo('lista', grupoId)
@@ -300,6 +303,7 @@ export function Grupos() {
   const [altaAbierta, setAltaAbierta] = useState(false)
   const [importando, setImportando] = useState(false)
   const [baja, setBaja] = useState<AlumnoLista | null>(null)
+  const [invitando, setInvitando] = useState<AlumnoLista | null>(null)
   const darBaja = useAccion(
     (v: { id: number; observacion: string }) => bajaInscripcion(v.id, v.observacion),
     {
@@ -341,8 +345,8 @@ export function Grupos() {
 
   return (
     <Pagina
-      titulo="Grupos y listas"
-      descripcion="La lista vigente de cada grupo. Docentes y auxiliares ven esta misma lista, sin recapturar nada."
+      titulo="Personas"
+      descripcion="La lista vigente del grupo, sus docentes y sus auxiliares. Docentes y auxiliares ven esta misma lista, sin recapturar nada."
       acciones={
         <>
           {editable ? (
@@ -397,17 +401,47 @@ export function Grupos() {
           <TablaDatos
             columnas={columnas}
             filas={datos.alumnos}
-            claveFila={(a) => a.inscripcion_id}
+            claveFila={(a) => a.inscripcion_id ?? a.identificador}
             descripcion={`Lista de ${datos.grupo.clave}, periodo ${datos.grupo.periodo}`}
             accionesFila={
-              editable
-                ? (a) =>
-                    a.estado === 'activa' ? (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setBaja(a)}>
-                        <UserMinus strokeWidth={2.4} aria-hidden="true" />
-                        Dar de baja
+              sesion?.base === 'coordinacion' || sesion?.base === 'direccion'
+                ? (a) => (
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <Button asChild type="button" variant="outline" size="sm">
+                        <Link to={`/historial?alumno=${a.alumno_id}`}>
+                          <History strokeWidth={2.4} aria-hidden="true" />
+                          Historial
+                        </Link>
                       </Button>
-                    ) : null
+                      {sesion.es_sistema &&
+                      sesion.base === 'coordinacion' &&
+                      a.estado === 'activa' &&
+                      !datos.cuentas_alumno?.includes(a.alumno_id) ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInvitando(a)}
+                        >
+                          <MailPlus strokeWidth={2.4} aria-hidden="true" />
+                          Invitar al alumno
+                        </Button>
+                      ) : null}
+                      {editable && a.estado === 'activa' ? (
+                        <SiPuede recurso="inscripcion_grupo" accion="modificar">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setBaja(a)}
+                          >
+                            <UserMinus strokeWidth={2.4} aria-hidden="true" />
+                            Dar de baja
+                          </Button>
+                        </SiPuede>
+                      ) : null}
+                    </div>
+                  )
                 : undefined
             }
             vacio={{
@@ -422,20 +456,40 @@ export function Grupos() {
               ) : undefined,
             }}
           />
-          <p className="text-sm text-ink-3" data-no-imprimir>
-            Siguiente paso:{' '}
-            <Link className="font-semibold text-brand underline" to="/derecho">
-              registrar el derecho a evaluación
-            </Link>{' '}
-            o{' '}
-            <Link
-              className="font-semibold text-brand underline"
-              to={`/cierre?periodo=${datos.grupo.periodo_id}&grupo=${datos.grupo.id}`}
-            >
-              ir al cierre del grupo
-            </Link>
-            .
-          </p>
+          <section
+            className="flex flex-col gap-2"
+            data-no-imprimir
+            aria-label="Docentes y auxiliares"
+          >
+            <h3 className="text-[11px] font-semibold tracking-[0.08em] text-ink-3 uppercase">
+              Docentes y auxiliares
+            </h3>
+            <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-card text-sm">
+              {datos.asignaciones.map((x) => (
+                <li
+                  key={x.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
+                >
+                  <span className="font-medium text-ink">{x.materia}</span>
+                  <span className="text-ink-3">{x.docente}</span>
+                </li>
+              ))}
+              {(datos.auxiliares ?? []).map((x) => (
+                <li
+                  key={`aux-${x.id}`}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"
+                >
+                  <span className="font-medium text-ink">Auxiliar</span>
+                  <span className="text-ink-3">{x.nombre}</span>
+                </li>
+              ))}
+              {datos.asignaciones.length === 0 && (datos.auxiliares ?? []).length === 0 ? (
+                <li className="px-4 py-2.5 text-ink-3">
+                  Este grupo todavía no tiene docentes asignados.
+                </li>
+              ) : null}
+            </ul>
+          </section>
           <DialogoAlta
             grupoId={datos.grupo.id}
             grupoClave={datos.grupo.clave}
@@ -443,6 +497,12 @@ export function Grupos() {
             abierto={altaAbierta}
             alCambiarApertura={setAltaAbierta}
           />
+          {invitando ? (
+            <DialogoInvitarAlumno
+              alumno={{ id: invitando.alumno_id, nombre: invitando.nombre }}
+              alCerrar={() => setInvitando(null)}
+            />
+          ) : null}
           {importando ? (
             <DialogoImportar
               key={datos.grupo.id}

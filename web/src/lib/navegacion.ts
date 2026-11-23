@@ -4,13 +4,16 @@
  * permiso de cada petición; esto solo decide qué se ofrece a cada rol.
  */
 import {
+  Bell,
   BookOpenCheck,
+  CalendarDays,
+  LayoutDashboard,
+  UserRound,
   ClipboardCheck,
   FileArchive,
   FolderClock,
   GraduationCap,
   History,
-  House,
   ListChecks,
   PackageCheck,
   Scale,
@@ -37,22 +40,49 @@ export interface Area {
 
 export const AREAS: Area[] = [
   {
-    clave: 'inicio',
-    etiqueta: 'Inicio',
-    descripcion: 'Lo que espera tu atención hoy.',
-    icono: House,
+    clave: 'tablero',
+    etiqueta: 'Tablero',
+    descripcion: 'Tus grupos y lo que espera tu atención.',
+    icono: LayoutDashboard,
     ruta: '/',
-    roles: ['coordinacion'],
-    permiso: 'cierre:ver',
+    roles: ['coordinacion', 'docente', 'direccion', 'carga_externa', 'auxiliar', 'alumno'],
+    permiso: 'periodo:ver',
   },
   {
     clave: 'grupos',
-    etiqueta: 'Grupos y listas',
-    descripcion: 'Lista vigente de cada grupo, altas y bajas.',
+    etiqueta: 'Grupos',
+    descripcion: 'Cada grupo con su lista, materias, calificaciones y cierre.',
     icono: UsersRound,
     ruta: '/grupos',
-    roles: ['coordinacion', 'direccion'],
-    permiso: 'inscripcion_grupo:ver',
+    roles: ['coordinacion', 'direccion', 'auxiliar', 'docente'],
+    permiso: 'grupo:ver',
+  },
+  {
+    clave: 'calendario',
+    etiqueta: 'Calendario',
+    descripcion: 'Fechas de periodos, entregas y cierres.',
+    icono: CalendarDays,
+    ruta: '/calendario',
+    roles: ['coordinacion', 'docente', 'direccion', 'carga_externa', 'auxiliar', 'alumno'],
+    permiso: 'periodo:ver',
+  },
+  {
+    clave: 'avisos',
+    etiqueta: 'Avisos',
+    descripcion: 'Lo que pasó y te toca atender.',
+    icono: Bell,
+    ruta: '/avisos',
+    roles: ['coordinacion', 'docente', 'direccion', 'carga_externa', 'auxiliar', 'alumno'],
+    permiso: 'periodo:ver',
+  },
+  {
+    clave: 'cuenta',
+    etiqueta: 'Cuenta',
+    descripcion: 'Tus datos, tu contraseña, tu tema y tus sesiones.',
+    icono: UserRound,
+    ruta: '/cuenta',
+    roles: ['coordinacion', 'docente', 'direccion', 'carga_externa', 'auxiliar', 'alumno'],
+    permiso: 'periodo:ver',
   },
   {
     clave: 'derecho',
@@ -78,7 +108,7 @@ export const AREAS: Area[] = [
     descripcion: 'Materias por periodo y pendientes de cada alumno.',
     icono: GraduationCap,
     ruta: '/historial',
-    roles: ['coordinacion', 'direccion'],
+    roles: ['coordinacion', 'direccion', 'alumno'],
     permiso: 'pendiente_academico:ver',
   },
   {
@@ -200,16 +230,57 @@ export function areaDeRuta(pathname: string): Area | null {
   return AREAS.find((a) => coincide(pathname, a.ruta)) ?? null
 }
 
-/** Primera pantalla del menú de la cuenta: a donde cae después de entrar. */
+/** Todos entran al Tablero (sección 11.2); con la contraseña temporal pendiente, solo a Mi contraseña. */
 export function rutaInicial(cuenta: Cuenta): string {
-  if (cuenta.debe_cambiar_clave) return '/mi-clave'
-  // Dirección empieza por lo que tiene que resolver.
-  if (
-    cuenta.base === 'direccion' &&
-    areasVisibles(cuenta).some((a) => a.clave === 'autorizaciones')
-  )
-    return '/autorizaciones'
-  return areasVisibles(cuenta)[0]?.ruta ?? '/mi-clave'
+  return cuenta.debe_cambiar_clave ? '/mi-clave' : '/'
+}
+
+export interface ItemRail {
+  clave: string
+  etiqueta: string
+  icono: LucideIcon
+  ruta: string
+  /** Pantallas que se abren desde este elemento (Administración). */
+  hijos?: { etiqueta: string; ruta: string }[]
+}
+
+/**
+ * Barra global (sección 11.1) de la cuenta. Tablero, Grupos, Calendario y Avisos son comunes; el resto
+ * depende del rol: Administración (Coordinación), Autorizaciones y Bitácora (Dirección), Lotes (Carga
+ * externa) y Boleta (Alumno). Cuenta y Ayuda las pone la propia barra.
+ */
+export function itemsRail(cuenta: Cuenta | null | undefined): ItemRail[] {
+  const vis = areasVisibles(cuenta)
+  const hay = (c: string) => vis.find((a) => a.clave === c)
+  const item = (c: string, etiqueta?: string): ItemRail[] => {
+    const a = hay(c)
+    return a
+      ? [{ clave: a.clave, etiqueta: etiqueta ?? a.etiqueta, icono: a.icono, ruta: a.ruta }]
+      : []
+  }
+  if (!cuenta) return []
+  const admin = ['catalogos', 'usuarios', 'metricas', 'bitacora']
+    .map(hay)
+    .filter((a): a is Area => a !== undefined)
+  return [
+    ...item('tablero'),
+    ...(cuenta.base === 'carga_externa' ? item('lotes') : item('grupos')),
+    ...item('calendario'),
+    ...item('avisos'),
+    ...(cuenta.base === 'alumno' ? item('historial', 'Boleta') : item('historial', 'Historial')),
+    ...(cuenta.base === 'direccion' ? [...item('autorizaciones'), ...item('bitacora')] : []),
+    ...(cuenta.base === 'coordinacion' && admin.length > 0
+      ? [
+          {
+            clave: 'administracion',
+            etiqueta: 'Administración',
+            icono: Library,
+            ruta: admin[0]!.ruta,
+            hijos: admin.map((a) => ({ etiqueta: a.etiqueta, ruta: a.ruta })),
+          },
+        ]
+      : []),
+  ]
 }
 
 /** Guardia de ruta: la URL directa a una pantalla de otro rol o sin permiso cae en Sin permiso. */
@@ -231,11 +302,11 @@ export interface Miga {
   ruta: string
 }
 
-/** Inicio › Pantalla; para coordinación la miga raíz es Inicio, para los demás su primera pantalla. */
+/** Tablero › Pantalla. Dentro de un grupo las migas las pone la propia página (periodo › grupo › sección). */
 export function migasDeRuta(pathname: string): { completas: Miga[]; propias: Miga[] } {
   const area = areaDeRuta(pathname)
-  if (!area || area.clave === 'inicio')
-    return { completas: [{ etiqueta: 'Inicio', ruta: '/' }], propias: [] }
+  if (!area || area.clave === 'tablero')
+    return { completas: [{ etiqueta: 'Tablero', ruta: '/' }], propias: [] }
   const propias: Miga[] = [{ etiqueta: area.etiqueta, ruta: area.ruta }]
-  return { completas: [{ etiqueta: 'Inicio', ruta: '/' }, ...propias], propias }
+  return { completas: [{ etiqueta: 'Tablero', ruta: '/' }, ...propias], propias }
 }

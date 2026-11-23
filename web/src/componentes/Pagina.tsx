@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react'
 
+import { useGrupoContexto } from '@/lib/grupoContexto'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,17 +22,26 @@ export function Pagina({
   children: ReactNode
 }) {
   const idTitulo = useId()
+  // Dentro de la página de un grupo el título es el de la sección, no el de la pantalla.
+  const enGrupo = useGrupoContexto() !== null
+  const Titulo = enGrupo ? 'h2' : 'h1'
 
   return (
     <section
-      className={cn('flex min-w-0 flex-col gap-6', accionPrincipal ? 'pb-24 sm:pb-0' : undefined)}
+      className={cn('flex min-w-0 flex-col gap-6', accionPrincipal ? 'pb-16 sm:pb-0' : undefined)}
       aria-labelledby={idTitulo}
     >
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <h1 id={idTitulo} className="text-3xl leading-tight font-semibold text-ink">
+          <Titulo
+            id={idTitulo}
+            className={cn(
+              'leading-tight font-semibold text-balance text-ink',
+              enGrupo ? 'text-2xl' : 'text-3xl',
+            )}
+          >
             {titulo}
-          </h1>
+          </Titulo>
           {descripcion ? (
             <p className="max-w-2xl text-sm leading-relaxed text-ink-3">{descripcion}</p>
           ) : null}
@@ -47,7 +57,7 @@ export function Pagina({
       {children}
 
       {accionPrincipal ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:hidden [&>*]:w-full">
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-paper px-4 py-3 sm:hidden [&>*]:w-full">
           {accionPrincipal}
         </div>
       ) : null}

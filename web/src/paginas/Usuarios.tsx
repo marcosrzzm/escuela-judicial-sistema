@@ -224,7 +224,9 @@ function DialogoUsuario({
             valor={watch('rol')}
             alCambiar={(v) => setValue('rol', v, { shouldValidate: true })}
             opciones={roles
-              .filter((r) => r.estado === 'activo' || r.clave === usuario?.rol)
+              .filter(
+                (r) => (r.estado === 'activo' && r.base !== 'alumno') || r.clave === usuario?.rol,
+              )
               .map((r) => ({ valor: r.clave, etiqueta: r.nombre }))}
             error={errors.rol?.message}
           />

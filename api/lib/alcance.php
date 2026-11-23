@@ -31,7 +31,7 @@ function cargar_asignacion(int $id): ?array
     return fila(
         'SELECT a.id, a.grupo_id, a.materia_id, a.docente_id, m.clave AS materia_clave, m.nombre AS materia,
                 g.clave AS grupo, g.programa, g.periodo_id, p.nombre AS periodo, p.estado AS periodo_estado,
-                d.nombre AS docente
+                d.nombre AS docente, a.fecha_limite_entrega
          FROM asignacion_docente a
          JOIN materia m ON m.id = a.materia_id
          JOIN grupo g ON g.id = a.grupo_id

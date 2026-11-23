@@ -319,6 +319,7 @@ function tarjetas_de_alumno(array $u, int $periodo_id): array
         $cal = $e === null ? null : fila('SELECT valor, estatus FROM calificacion WHERE entrega_id = ? AND alumno_id = ?', [$e['id'], $alumno_id]);
         $d = decisiones_vigentes((int) $f['asignacion_id'])[$alumno_id] ?? null;
         $f['tipo'] = 'materia';
+        $f['titulo'] = $f['materia'];
         $f['calificacion'] = $cal === null ? null : ['valor' => $cal['valor'] === null ? null : (float) $cal['valor'], 'estatus' => $cal['estatus']];
         $f['derecho'] = $d === null ? null : ($d['bloqueado'] ? 'sin_derecho' : ($d['resultado'] === 'con_derecho' ? 'con_derecho' : 'pendiente'));
         $f['enlace'] = '/historial';

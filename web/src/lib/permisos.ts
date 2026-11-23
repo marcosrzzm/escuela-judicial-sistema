@@ -39,6 +39,7 @@ export const ETIQUETA_BASE: Record<string, string> = {
   direccion: 'Dirección',
   carga_externa: 'Carga externa',
   auxiliar: 'Auxiliar',
+  alumno: 'Alumno',
 }
 
 /** "recurso:accion" agrupado por recurso, en el orden de la lista. */

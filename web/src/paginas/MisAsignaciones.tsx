@@ -1,6 +1,6 @@
 import { Printer, Save, Send } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,9 @@ import {
 import { DialogoConfirmacion } from '@/componentes/DialogoConfirmacion'
 import { InsigniaEstado } from '@/componentes/Estados'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
+import { LayoutSeccion } from '@/componentes/LayoutSeccion'
 import { Pagina } from '@/componentes/Pagina'
+import { Panel } from '@/componentes/Plataforma'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
 import {
   abrirEntrega,
@@ -24,7 +26,8 @@ import {
   type ItemCalificacion,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
-import { fechaHora } from '@/lib/formulario'
+import { fechaHora, soloFecha } from '@/lib/formulario'
+import { useDeclararMigas } from '@/lib/migas'
 import { useSesion } from '@/lib/sesion'
 
 export function MisAsignaciones() {
@@ -47,8 +50,8 @@ export function MisAsignaciones() {
   ]
   return (
     <Pagina
-      titulo="Mis asignaciones"
-      descripcion="Tus materias del periodo. Abre una para ver su lista y capturar las calificaciones."
+      titulo="Mis grupos y materias"
+      descripcion="Tus materias del periodo. Abre una para ver su lista, capturar las calificaciones y consultar el derecho a evaluación."
     >
       {lista.error ? <ErrorDatos error={lista.error} reintentar={lista.reintentar} /> : null}
       <TablaDatos
@@ -57,10 +60,10 @@ export function MisAsignaciones() {
         claveFila={(a) => a.id}
         descripcion="Mis asignaciones del periodo abierto"
         cargando={lista.cargando}
-        onFilaClic={(a) => void navegar(`/asignaciones/${a.id}`)}
+        onFilaClic={(a) => void navegar(`/asignaciones/${a.id}/calificaciones`)}
         accionesFila={(a) => (
           <Button asChild size="sm">
-            <Link to={`/asignaciones/${a.id}`}>Abrir</Link>
+            <Link to={`/asignaciones/${a.id}/calificaciones`}>Abrir</Link>
           </Button>
         )}
         vacio={{
@@ -240,29 +243,144 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
   )
 }
 
-export function Asignacion() {
-  const { id } = useParams()
-  const d = useDatos<DetalleAsignacion>(`/asignaciones/${Number(id)}`)
+const PESTANAS = [
+  ['lista', 'Lista'],
+  ['calificaciones', 'Calificaciones'],
+  ['derecho', 'Derecho a evaluación'],
+] as const
+
+type Alumno = DetalleAsignacion['alumnos'][number]
+
+function ListaMateria({ detalle }: { detalle: DetalleAsignacion }) {
+  const columnas: ColumnaTabla<Alumno>[] = [
+    { clave: 'identificador', encabezado: 'Matrícula', className: 'num' },
+    { clave: 'nombre', encabezado: 'Alumno' },
+  ]
   return (
-    <Pagina
-      titulo={
-        d.datos ? `${d.datos.asignacion.materia} · ${d.datos.asignacion.grupo}` : 'Asignación'
-      }
-      descripcion={
-        d.datos
-          ? `Periodo ${d.datos.asignacion.periodo}. La lista es la misma que ve Coordinación: no hay nada que recapturar.`
-          : undefined
-      }
-      acciones={
-        <Button type="button" variant="outline" onClick={() => window.print()} disabled={!d.datos}>
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-semibold text-ink">Lista</h2>
+        <Button type="button" variant="outline" onClick={() => window.print()}>
           <Printer strokeWidth={2.4} aria-hidden="true" />
           Imprimir lista
         </Button>
+      </div>
+      <TablaDatos
+        columnas={columnas}
+        filas={detalle.alumnos}
+        claveFila={(a) => a.alumno_id}
+        descripcion={`Lista de ${detalle.asignacion.materia} en ${detalle.asignacion.grupo}`}
+        vacio={{
+          variante: 'vacio',
+          titulo: 'Este grupo todavía no tiene alumnos',
+          descripcion:
+            'Coordinación da de alta a los alumnos; en cuanto lo haga, aparecen aquí sin que captures nada.',
+        }}
+      />
+    </>
+  )
+}
+
+/** Solo el resultado: el motivo y la evidencia son de Coordinación y Dirección (especificación, 10.7). */
+function DerechoMateria({ detalle }: { detalle: DetalleAsignacion }) {
+  const columnas: ColumnaTabla<Alumno>[] = [
+    { clave: 'identificador', encabezado: 'Matrícula', className: 'num' },
+    { clave: 'nombre', encabezado: 'Alumno' },
+    {
+      clave: 'resultado',
+      encabezado: 'Derecho a evaluación',
+      render: (a) =>
+        a.decision ? (
+          <InsigniaEstado estado={a.decision.resultado} />
+        ) : (
+          <span className="text-ink-3">Sin decisión todavía</span>
+        ),
+    },
+  ]
+  return (
+    <>
+      <h2 className="text-2xl font-semibold text-ink">Derecho a evaluación</h2>
+      <p className="max-w-2xl text-sm text-ink-3">
+        Sabes a quién no calificar. El motivo de cada decisión lo guarda Coordinación.
+      </p>
+      <TablaDatos
+        columnas={columnas}
+        filas={detalle.alumnos}
+        claveFila={(a) => a.alumno_id}
+        descripcion={`Derecho a evaluación en ${detalle.asignacion.materia}`}
+      />
+    </>
+  )
+}
+
+export function Asignacion() {
+  const { id, tab } = useParams()
+  const d = useDatos<DetalleAsignacion>(`/asignaciones/${Number(id)}`)
+  const datos = d.datos
+  const activa = PESTANAS.some(([c]) => c === tab) ? (tab as string) : 'calificaciones'
+  const base = `/asignaciones/${Number(id)}`
+  useDeclararMigas(
+    datos
+      ? [
+          { etiqueta: datos.asignacion.periodo, ruta: '/grupos' },
+          {
+            etiqueta: `${datos.asignacion.grupo} · ${datos.asignacion.materia}`,
+            ruta: `${base}/calificaciones`,
+          },
+          {
+            etiqueta: PESTANAS.find(([c]) => c === activa)?.[1] ?? 'Calificaciones',
+            ruta: `${base}/${activa}`,
+          },
+        ]
+      : null,
+  )
+  if (tab !== undefined && !PESTANAS.some(([c]) => c === tab))
+    return <Navigate to={`${base}/calificaciones`} replace />
+  if (d.error) return <ErrorDatos error={d.error} reintentar={d.reintentar} />
+  if (!datos) return <Cargando />
+  const limite = (datos.asignacion as { fecha_limite_entrega?: string | null }).fecha_limite_entrega
+  return (
+    <LayoutSeccion
+      encabezado={`${datos.asignacion.materia} · ${datos.asignacion.grupo}`}
+      secciones={PESTANAS.map(([clave, etiqueta]) => ({
+        clave,
+        etiqueta,
+        ruta: `${base}/${clave}`,
+      }))}
+      activa={activa}
+      derecha={
+        <>
+          <Link
+            to="/calendario"
+            className="flex min-h-10 items-center rounded-md px-2 text-sm font-medium text-brand hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            Ver calendario
+          </Link>
+          <Panel titulo="Mi entrega">
+            <div className="flex flex-col gap-2 rounded-lg border border-line bg-card p-3 text-sm">
+              <span className="flex items-center gap-2">
+                <InsigniaEstado estado={datos.entrega?.estado ?? 'sin_entrega'} />
+                {datos.entrega ? (
+                  <span className="text-xs text-ink-3 num">v{datos.entrega.version}</span>
+                ) : null}
+              </span>
+              <span className="text-ink-2">
+                Fecha límite:{' '}
+                <span className="num">{limite ? soloFecha(limite) : 'sin fecha'}</span>
+              </span>
+            </div>
+          </Panel>
+        </>
       }
     >
-      {d.error ? <ErrorDatos error={d.error} reintentar={d.reintentar} /> : null}
-      {d.cargando ? <Cargando /> : null}
-      {d.datos ? <Captura key={d.datos.entrega?.id ?? 'sin-entrega'} detalle={d.datos} /> : null}
-    </Pagina>
+      {activa === 'lista' ? <ListaMateria detalle={datos} /> : null}
+      {activa === 'calificaciones' ? (
+        <>
+          <h2 className="text-2xl font-semibold text-ink">Calificaciones</h2>
+          <Captura key={datos.entrega?.id ?? 'sin-entrega'} detalle={datos} />
+        </>
+      ) : null}
+      {activa === 'derecho' ? <DerechoMateria detalle={datos} /> : null}
+    </LayoutSeccion>
   )
 }

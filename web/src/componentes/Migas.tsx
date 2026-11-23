@@ -1,11 +1,11 @@
 /**
- * Migas de pan: Inicio › Área › Pantalla, con enlaces a lo ya visitado. En
- * móvil se omite "Inicio" (queda solo Área › Pantalla) porque la pantalla es
- * angosta y el usuario ya sabe que está en el sistema.
+ * Migas de pan. Fuera de un grupo: Tablero › Pantalla. Dentro de un grupo la página las declara
+ * (periodo › grupo › sección). En móvil solo se muestran las dos últimas para no desbordar.
  */
 import { ChevronRight } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
+import { useMigasPropias } from '@/lib/migas'
 import { migasDeRuta, type Miga } from '@/lib/navegacion'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,7 @@ function ListaMigas({ migas, className }: { migas: Miga[]; className?: string })
       {migas.map((miga, indice) => {
         const esUltima = indice === migas.length - 1
         return (
-          <li key={miga.ruta} className="flex min-w-0 items-center gap-1.5">
+          <li key={`${miga.ruta}-${indice}`} className="flex min-w-0 items-center gap-1.5">
             {indice > 0 ? (
               <ChevronRight
                 strokeWidth={2.4}
@@ -45,12 +45,17 @@ function ListaMigas({ migas, className }: { migas: Miga[]; className?: string })
 
 export function Migas() {
   const ubicacion = useLocation()
-  const { completas, propias } = migasDeRuta(ubicacion.pathname)
+  const propias = useMigasPropias()
+  const { completas, propias: deRuta } = migasDeRuta(ubicacion.pathname)
+  const migas = propias ?? completas
 
   return (
     <nav aria-label="Ubicación" className="min-w-0">
-      <ListaMigas migas={completas} className="hidden sm:flex" />
-      <ListaMigas migas={propias.length > 0 ? propias : completas} className="flex sm:hidden" />
+      <ListaMigas migas={migas} className="hidden sm:flex" />
+      <ListaMigas
+        migas={propias ? propias.slice(-2) : deRuta.length > 0 ? deRuta : completas}
+        className="flex sm:hidden"
+      />
     </nav>
   )
 }

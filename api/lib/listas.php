@@ -245,6 +245,7 @@ function ruta_historial(array $a): never
     }
     responder(200, [
         'alumno' => $alumno,
+        'tiene_cuenta' => !$es_alumno && fila('SELECT id FROM usuario WHERE alumno_id = ?', [$alumno['id']]) !== null,
         'periodos' => array_values($periodos),
         'pendientes' => $pend,
         'materias' => $es_alumno ? [] : filas('SELECT id, nombre FROM materia ORDER BY nombre'),

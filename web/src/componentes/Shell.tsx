@@ -1,22 +1,23 @@
 /**
- * Armazón del sistema, layout lateral: sidebar de tres anchos (drawer en móvil, 72px de iconos
- * en md, 256px en lg con colapso manual a iconos, y cierre completo a ancho 0 que se recuerda).
- * Aquí vive el guardia de ruta: la URL directa a la pantalla de otro rol cae en SinPermiso.
+ * Armazón del sistema (especificación, 11.1): barra global angosta y oscura a la izquierda con la marca,
+ * la cuenta, Tablero, Grupos, Calendario, Avisos y lo propio del rol; Ayuda y una flecha para contraer al
+ * fondo. En celular, un menú inferior de cinco íconos. Aquí vive el guardia de ruta: la URL directa a la
+ * pantalla de otro rol cae en SinPermiso.
  */
 import {
-  KeyRound,
+  BookOpen,
+  ChevronsLeft,
+  ChevronsRight,
+  CircleHelp,
+  Ellipsis,
   LogOut,
-  Menu,
   Moon,
-  PanelLeft,
-  PanelLeftClose,
   Rows3,
   Search,
   Sun,
   UserRound,
-  X,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Sheet,
   SheetContent,
@@ -35,136 +37,398 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { BandejaRapida, IconoAvisos, useNoLeidos } from '@/componentes/Avisos'
 import { GuiaPantalla } from '@/componentes/GuiaPantalla'
 import { Migas } from '@/componentes/Migas'
-import { salirDeVerComo } from '@/lib/api'
+import { fijarTema, salirDeVerComo } from '@/lib/api'
 import { useAccion } from '@/lib/datos'
-import { areasVisibles, areaDeRuta, rutaPermitida } from '@/lib/navegacion'
+import { ProveedorMigas } from '@/lib/migas'
+import { areaDeRuta, itemsRail, rutaPermitida, type ItemRail } from '@/lib/navegacion'
+import { ContextoPreferencias, usePreferencias, type Preferencias } from '@/lib/preferencias'
 import { useSesion } from '@/lib/sesion'
 import { cn } from '@/lib/utils'
 import { SinPermiso } from '@/paginas/SinPermiso'
 
 const CLAVE_DENSIDAD = 'elevalia.densidad'
 const CLAVE_TEMA = 'elevalia.tema'
-const CLAVE_MENU_CERRADO = 'elevalia.menu-cerrado'
+const CLAVE_RAIL = 'elevalia.rail-compacto'
 
-function leerDensidad(): 'comoda' | 'compacta' {
+function leer(clave: string): string | null {
   try {
-    return localStorage.getItem(CLAVE_DENSIDAD) === 'compacta' ? 'compacta' : 'comoda'
+    return localStorage.getItem(clave)
   } catch {
-    return 'comoda'
+    return null
   }
 }
 
-function leerTemaOscuro(): boolean {
+function guardar(clave: string, valor: string) {
   try {
-    return localStorage.getItem(CLAVE_TEMA) === 'oscuro'
+    localStorage.setItem(clave, valor)
   } catch {
-    return false
-  }
-}
-
-function leerMenuCerrado(): boolean {
-  try {
-    return localStorage.getItem(CLAVE_MENU_CERRADO) === '1'
-  } catch {
-    return false
+    // Sin storage disponible: el cambio funciona en la sesión aunque no se recuerde.
   }
 }
 
 // El elemento activo se marca con una regla fina de 2 px a la izquierda (no mueve el texto), un fondo
-// apenas más claro y el texto en negrita. Sin esquinas redondeadas, sin degradados ni sombras.
-const CLASES_ENLACE =
-  "relative flex min-h-11 items-center gap-3 px-4 text-sm transition-colors duration-ui before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:content-[''] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nav-acento md:flex-col md:justify-center md:gap-0.5 md:px-1 lg:flex-row lg:justify-start lg:gap-3 lg:px-4"
-const CLASES_ACTIVO = 'bg-nav-2 font-semibold text-nav-on before:bg-nav-acento'
-const CLASES_INACTIVO = 'text-nav-txt hover:bg-nav-2 hover:text-nav-on'
+// apenas más claro y el texto en negrita. Sin degradados ni sombras.
+const BASE_RAIL =
+  "relative flex w-full flex-col items-center justify-center gap-1 px-0.5 py-2.5 text-[10.5px] leading-tight transition-colors duration-ui before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:content-[''] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nav-acento"
+const ACTIVO_RAIL = 'bg-nav-2 font-semibold text-nav-on before:bg-nav-acento'
+const INACTIVO_RAIL = 'text-nav-txt hover:bg-nav-2 hover:text-nav-on'
 
-function ContenidoNavegacion({
-  colapsado,
-  alSeleccionar,
-  mostrarCerrar,
-  cerrarBtnRef,
+function Insignia({ n }: { n: number }) {
+  if (n <= 0) return null
+  return (
+    <span
+      className="absolute top-1.5 right-3 grid min-w-4 place-items-center rounded-full bg-nav-acento px-1 text-[10px] leading-4 font-bold text-ink num"
+      aria-label={`${n} sin leer`}
+    >
+      {n > 99 ? '99+' : n}
+    </span>
+  )
+}
+
+function Contenido({
+  item,
+  compacto,
 }: {
-  colapsado: boolean
-  alSeleccionar?: () => void
-  mostrarCerrar?: boolean
-  cerrarBtnRef?: RefObject<HTMLButtonElement | null>
+  item: Pick<ItemRail, 'icono' | 'etiqueta'>
+  compacto: boolean
 }) {
-  const { sesion } = useSesion()
+  const Icono = item.icono
+  return (
+    <>
+      <Icono strokeWidth={2} aria-hidden="true" className="size-[22px] shrink-0" />
+      <span className={cn('max-w-full truncate', compacto && 'sr-only')}>{item.etiqueta}</span>
+    </>
+  )
+}
+
+function Rail({ compacto, alternar }: { compacto: boolean; alternar: () => void }) {
+  const { sesion, salir } = useSesion()
   const ubicacion = useLocation()
-  const areas = areasVisibles(sesion)
-  const areaActiva = areaDeRuta(ubicacion.pathname)
+  const navegar = useNavigate()
+  const prefs = usePreferencias()
+  const noLeidos = useNoLeidos()
+  const [avisosAbiertos, setAvisosAbiertos] = useState(false)
+  const items = itemsRail(sesion)
+  const area = areaDeRuta(ubicacion.pathname)
+  const activo = (i: ItemRail) =>
+    i.hijos
+      ? i.hijos.some((h) => ubicacion.pathname.startsWith(h.ruta))
+      : i.ruta === '/'
+        ? ubicacion.pathname === '/'
+        : ubicacion.pathname.startsWith(i.ruta) ||
+          (i.clave === 'grupos' && area?.clave === 'asignaciones')
+  if (!sesion) return null
+  const iniciales = sesion.nombre
+    .split(' ')
+    .filter((p) => /^\p{L}/u.test(p) && !/\.$/.test(p))
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
 
   return (
     <div className="flex h-full flex-col bg-nav text-nav-txt">
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-nav-3 px-4">
-        <span className="shrink-0 font-serif text-xl font-semibold tracking-wide text-nav-on">
+      <div className="grid h-14 shrink-0 place-items-center border-b border-nav-3">
+        <span
+          className="font-serif text-xl font-semibold tracking-wide text-nav-on"
+          title="Escuela Judicial"
+        >
           EJ
         </span>
-        {!colapsado ? (
-          <span className="truncate font-semibold tracking-tight md:hidden lg:inline">
-            Escuela Judicial
-          </span>
-        ) : null}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3" aria-label="Principal">
-        {areas.map((area) => {
-          const Icono = area.icono
-          const activa = areaActiva?.clave === area.clave
+      <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1" aria-label="Principal">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={cn(BASE_RAIL, INACTIVO_RAIL)}
+              aria-label={`Cuenta de ${sesion.nombre}`}
+            >
+              <span className="grid size-[22px] place-items-center rounded-full bg-nav-3 text-[10px] font-bold text-nav-on">
+                {iniciales || <UserRound className="size-3.5" aria-hidden="true" />}
+              </span>
+              <span className={cn(compacto && 'sr-only')}>Cuenta</span>
+            </button>
+          </DropdownMenuTrigger>
+          <MenuCuenta lado="right" prefs={prefs} salir={() => void salir()} />
+        </DropdownMenu>
+
+        {items.map((item) => {
+          const esActivo = activo(item)
+          const clases = cn(BASE_RAIL, esActivo ? ACTIVO_RAIL : INACTIVO_RAIL)
+          if (item.hijos) {
+            return (
+              <DropdownMenu key={item.clave}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={clases}
+                    aria-current={esActivo ? 'page' : undefined}
+                  >
+                    <Contenido item={item} compacto={compacto} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start" className="w-56">
+                  <DropdownMenuLabel>{item.etiqueta}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {item.hijos.map((h) => (
+                    <DropdownMenuItem key={h.ruta} asChild>
+                      <Link to={h.ruta}>{h.etiqueta}</Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          }
+          if (item.clave === 'avisos') {
+            return (
+              <Popover key={item.clave} open={avisosAbiertos} onOpenChange={setAvisosAbiertos}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={clases}
+                    aria-current={esActivo ? 'page' : undefined}
+                  >
+                    <Contenido
+                      item={{ icono: IconoAvisos, etiqueta: item.etiqueta }}
+                      compacto={compacto}
+                    />
+                    <Insignia n={noLeidos} />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start">
+                  <BandejaRapida alNavegar={() => setAvisosAbiertos(false)} />
+                </PopoverContent>
+              </Popover>
+            )
+          }
           return (
-            <div key={area.clave}>
-              <Link
-                to={area.ruta}
-                onClick={alSeleccionar}
-                aria-current={activa ? 'page' : undefined}
-                title={area.etiqueta}
-                className={cn(CLASES_ENLACE, activa ? CLASES_ACTIVO : CLASES_INACTIVO)}
-              >
-                <Icono strokeWidth={2.4} aria-hidden="true" className="size-5 shrink-0" />
-                {colapsado ? (
-                  <span className="sr-only">{area.etiqueta}</span>
-                ) : (
-                  <span className="truncate md:sr-only lg:not-sr-only lg:text-sm">
-                    {area.etiqueta}
-                  </span>
-                )}
-              </Link>
-            </div>
+            <Link
+              key={item.clave}
+              to={item.ruta}
+              aria-current={esActivo ? 'page' : undefined}
+              className={clases}
+              title={item.etiqueta}
+            >
+              <Contenido item={item} compacto={compacto} />
+            </Link>
           )
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-nav-3 p-2">
+      <div className="shrink-0 border-t border-nav-3">
         <button
           type="button"
-          onClick={() => document.dispatchEvent(new CustomEvent('colapsar-sidebar'))}
-          className="hidden min-h-11 w-full items-center gap-3 px-2 text-sm text-nav-txt hover:bg-nav-2 hover:text-nav-on focus-visible:outline-nav-acento lg:flex"
-          aria-label={colapsado ? 'Expandir menú' : 'Colapsar menú'}
+          className={cn(BASE_RAIL, INACTIVO_RAIL)}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('abrir-guia'))
+            if (!document.querySelector('[data-guia-disponible]')) void navegar('/cuenta')
+          }}
         >
-          {colapsado ? (
-            <PanelLeft className="size-5" strokeWidth={2.4} />
-          ) : (
-            <PanelLeftClose className="size-5" strokeWidth={2.4} />
-          )}
-          {!colapsado ? <span>Colapsar</span> : null}
+          <Contenido item={{ icono: CircleHelp, etiqueta: 'Ayuda' }} compacto={compacto} />
         </button>
-        {mostrarCerrar ? (
-          <button
-            ref={cerrarBtnRef}
-            type="button"
-            onClick={() => document.dispatchEvent(new CustomEvent('cerrar-sidebar'))}
-            className="hidden min-h-11 w-full items-center gap-3 px-2 text-sm text-nav-txt hover:bg-nav-2 hover:text-nav-on focus-visible:outline-nav-acento md:flex"
-            aria-label="Cerrar menú"
-          >
-            <X className="size-5 shrink-0" strokeWidth={2.4} />
-            <span className={cn('truncate', colapsado ? 'sr-only' : 'md:hidden lg:inline')}>
-              Cerrar menú
-            </span>
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={alternar}
+          className={cn(BASE_RAIL, INACTIVO_RAIL, 'hidden md:flex')}
+          aria-label={compacto ? 'Expandir la barra' : 'Contraer la barra'}
+        >
+          {compacto ? (
+            <ChevronsRight strokeWidth={2} className="size-5" aria-hidden="true" />
+          ) : (
+            <ChevronsLeft strokeWidth={2} className="size-5" aria-hidden="true" />
+          )}
+          <span className="sr-only">{compacto ? 'Expandir' : 'Contraer'}</span>
+        </button>
       </div>
     </div>
+  )
+}
+
+function MenuCuenta({
+  lado,
+  prefs,
+  salir,
+}: {
+  lado: 'right' | 'top'
+  prefs: Preferencias
+  salir: () => void
+}) {
+  const { sesion } = useSesion()
+  if (!sesion) return null
+  return (
+    <DropdownMenuContent side={lado} align="start" className="w-60">
+      <DropdownMenuLabel>
+        {sesion.nombre}
+        <span className="block text-xs font-normal text-ink-3">{sesion.rol_nombre}</span>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild>
+        <Link to="/cuenta">
+          <UserRound strokeWidth={2.4} aria-hidden="true" />
+          Mi cuenta
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={prefs.alternarDensidad}>
+        <Rows3 strokeWidth={2.4} aria-hidden="true" />
+        Densidad: {prefs.densidad === 'comoda' ? 'Cómoda' : 'Compacta'}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={prefs.alternarTema}>
+        {prefs.oscuro ? (
+          <Sun strokeWidth={2.4} aria-hidden="true" />
+        ) : (
+          <Moon strokeWidth={2.4} aria-hidden="true" />
+        )}
+        Modo {prefs.oscuro ? 'claro' : 'oscuro'}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={salir}>
+        <LogOut strokeWidth={2.4} aria-hidden="true" />
+        Cerrar sesión
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  )
+}
+
+/** Menú inferior de celular: los cuatro primeros elementos y "Más" con todo lo demás. */
+function BarraMovil() {
+  const { sesion, salir } = useSesion()
+  const ubicacion = useLocation()
+  const prefs = usePreferencias()
+  const noLeidos = useNoLeidos()
+  const [masAbierto, setMasAbierto] = useState(false)
+  const items = itemsRail(sesion)
+  const principales = items
+    .filter((i) =>
+      ['tablero', 'grupos', 'lotes', 'calendario', 'avisos', 'historial'].includes(i.clave),
+    )
+    .slice(0, 4)
+  const resto = items.filter((i) => !principales.includes(i))
+  if (!sesion) return null
+  const clases = (a: boolean) =>
+    cn(
+      "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] leading-tight before:absolute before:inset-x-3 before:top-0 before:h-0.5 before:content-[''] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nav-acento",
+      a ? 'font-semibold text-nav-on before:bg-nav-acento' : 'text-nav-txt',
+    )
+  return (
+    <>
+      <nav
+        aria-label="Principal"
+        data-no-imprimir
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-nav-3 bg-nav pb-[env(safe-area-inset-bottom)] md:hidden"
+      >
+        {principales.map((i) => {
+          const Icono = i.icono
+          const activo =
+            i.ruta === '/' ? ubicacion.pathname === '/' : ubicacion.pathname.startsWith(i.ruta)
+          return (
+            <Link
+              key={i.clave}
+              to={i.ruta}
+              className={clases(activo)}
+              aria-current={activo ? 'page' : undefined}
+            >
+              <Icono strokeWidth={2} className="size-[22px]" aria-hidden="true" />
+              {i.clave === 'avisos' ? <Insignia n={noLeidos} /> : null}
+              {i.etiqueta}
+            </Link>
+          )
+        })}
+        <button type="button" className={clases(masAbierto)} onClick={() => setMasAbierto(true)}>
+          <Ellipsis strokeWidth={2} className="size-[22px]" aria-hidden="true" />
+          Más
+        </button>
+      </nav>
+      <Sheet open={masAbierto} onOpenChange={setMasAbierto}>
+        <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{sesion.nombre}</SheetTitle>
+            <SheetDescription>{sesion.rol_nombre}</SheetDescription>
+          </SheetHeader>
+          <ul className="flex flex-col px-2 pb-4 text-sm">
+            <Fila ruta="/cuenta" etiqueta="Mi cuenta" alElegir={() => setMasAbierto(false)} />
+            {resto.flatMap((i) =>
+              i.hijos
+                ? i.hijos.map((h) => (
+                    <Fila
+                      key={h.ruta}
+                      ruta={h.ruta}
+                      etiqueta={h.etiqueta}
+                      alElegir={() => setMasAbierto(false)}
+                    />
+                  ))
+                : [
+                    <Fila
+                      key={i.ruta}
+                      ruta={i.ruta}
+                      etiqueta={i.etiqueta}
+                      alElegir={() => setMasAbierto(false)}
+                    />,
+                  ],
+            )}
+            <li>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-left"
+                onClick={prefs.alternarTema}
+              >
+                {prefs.oscuro ? (
+                  <Sun className="size-4" aria-hidden="true" />
+                ) : (
+                  <Moon className="size-4" aria-hidden="true" />
+                )}
+                Modo {prefs.oscuro ? 'claro' : 'oscuro'}
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-left"
+                onClick={() => {
+                  setMasAbierto(false)
+                  window.dispatchEvent(new CustomEvent('abrir-guia'))
+                }}
+              >
+                <CircleHelp className="size-4" aria-hidden="true" />
+                Ayuda
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-error"
+                onClick={() => void salir()}
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+                Cerrar sesión
+              </button>
+            </li>
+          </ul>
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
+
+function Fila({
+  ruta,
+  etiqueta,
+  alElegir,
+}: {
+  ruta: string
+  etiqueta: string
+  alElegir: () => void
+}) {
+  return (
+    <li>
+      <Link to={ruta} onClick={alElegir} className="flex min-h-11 items-center gap-3 px-3">
+        <BookOpen className="size-4 text-ink-3" aria-hidden="true" />
+        {etiqueta}
+      </Link>
+    </li>
   )
 }
 
@@ -204,31 +468,24 @@ function FranjaVerComo() {
   )
 }
 
-export function Shell() {
-  const { sesion, salir, cargando } = useSesion()
+export function Shell(): ReactNode {
+  const { sesion, cargando } = useSesion()
   const ubicacion = useLocation()
-  const [menuAbierto, setMenuAbierto] = useState(false)
-  const [colapsado, setColapsado] = useState(false)
-  const [cerrado, setCerrado] = useState(leerMenuCerrado)
-  const [densidad, setDensidad] = useState<'comoda' | 'compacta'>(leerDensidad)
-  const [oscuro, setOscuro] = useState(leerTemaOscuro)
-  const abrirMenuBtnRef = useRef<HTMLButtonElement>(null)
-  const cerrarMenuBtnRef = useRef<HTMLButtonElement>(null)
-  const esPrimerRenderCerrado = useRef(true)
+  const [compacto, setCompacto] = useState(() => leer(CLAVE_RAIL) === '1')
+  const [densidad, setDensidad] = useState<'comoda' | 'compacta'>(() =>
+    leer(CLAVE_DENSIDAD) === 'compacta' ? 'compacta' : 'comoda',
+  )
+  const [oscuro, setOscuro] = useState(() => {
+    const local = leer(CLAVE_TEMA)
+    return local === null ? sesion?.preferencia_tema === 'oscuro' : local === 'oscuro'
+  })
+  const cuentaId = sesion?.id
 
-  // Al cambiar cerrado (no en el primer render) el botón que disparó el toggle
-  // se desmonta y el foco cae a body; se manda al botón que aparece en su lugar.
+  // Al entrar con otra cuenta sin preferencia guardada en este navegador, manda la de la cuenta.
   useEffect(() => {
-    if (esPrimerRenderCerrado.current) {
-      esPrimerRenderCerrado.current = false
-      return
-    }
-    if (cerrado) {
-      abrirMenuBtnRef.current?.focus()
-    } else {
-      cerrarMenuBtnRef.current?.focus()
-    }
-  }, [cerrado])
+    if (cuentaId !== undefined && leer(CLAVE_TEMA) === null && sesion?.preferencia_tema)
+      setOscuro(sesion.preferencia_tema === 'oscuro')
+  }, [cuentaId, sesion?.preferencia_tema])
 
   useEffect(() => {
     document.documentElement.dataset.densidad = densidad
@@ -238,35 +495,8 @@ export function Shell() {
     document.documentElement.classList.toggle('dark', oscuro)
   }, [oscuro])
 
-  useEffect(() => {
-    function alColapsar() {
-      setColapsado((v) => !v)
-    }
-    document.addEventListener('colapsar-sidebar', alColapsar)
-    return () => document.removeEventListener('colapsar-sidebar', alColapsar)
-  }, [])
-
-  useEffect(() => {
-    function alCerrar() {
-      setCerrado((previo) => {
-        const nuevo = !previo
-        try {
-          localStorage.setItem(CLAVE_MENU_CERRADO, nuevo ? '1' : '0')
-        } catch {
-          // Sin storage disponible: el toggle sigue funcionando, solo no se recuerda.
-        }
-        return nuevo
-      })
-    }
-    document.addEventListener('cerrar-sidebar', alCerrar)
-    return () => document.removeEventListener('cerrar-sidebar', alCerrar)
-  }, [])
-
-  // Mientras se resuelve la sesión (recarga o URL directa) no se decide nada:
-  // redirigir antes de tiempo era el bug real, no una teoría. Se descubrió
-  // porque una URL directa a /configuracion como vendedor rebotaba a Inicio
-  // en vez de caer en Sin permiso: sesion todavía era null por estar cargando,
-  // no por no haber sesión.
+  // Mientras se resuelve la sesión (recarga o URL directa) no se decide nada: antes de tiempo una URL
+  // directa a otra pantalla rebotaría a Inicio en lugar de caer en Sin permiso.
   if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-paper" role="status">
@@ -279,178 +509,102 @@ export function Shell() {
   if (sesion.debe_cambiar_clave && ubicacion.pathname !== '/mi-clave')
     return <Navigate to="/mi-clave" replace />
 
-  function alternarDensidad() {
-    const nueva = densidad === 'comoda' ? 'compacta' : 'comoda'
-    setDensidad(nueva)
-    try {
-      localStorage.setItem(CLAVE_DENSIDAD, nueva)
-    } catch {
-      // Sin storage disponible: el toggle sigue funcionando, solo no se recuerda.
-    }
+  const prefs = {
+    oscuro,
+    alternarTema: () => {
+      const nuevo = !oscuro
+      setOscuro(nuevo)
+      guardar(CLAVE_TEMA, nuevo ? 'oscuro' : 'claro')
+      // En "Ver como" no se escribe nada: la preferencia solo cambia en este navegador.
+      if (!sesion.solo_lectura) void fijarTema(nuevo ? 'oscuro' : 'claro')
+    },
+    densidad,
+    alternarDensidad: () => {
+      const nueva = densidad === 'comoda' ? 'compacta' : 'comoda'
+      setDensidad(nueva)
+      guardar(CLAVE_DENSIDAD, nueva)
+    },
   }
-
-  function alternarTema() {
-    const nuevo = !oscuro
-    setOscuro(nuevo)
-    try {
-      localStorage.setItem(CLAVE_TEMA, nuevo ? 'oscuro' : 'claro')
-    } catch {
-      // Igual que la densidad: funciona en la sesión aunque no se recuerde.
-    }
-  }
-
   const puedeVerRuta = rutaPermitida(ubicacion.pathname, sesion)
-  const contenido = puedeVerRuta ? <Outlet /> : <SinPermiso />
-
-  const menuUsuario = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" aria-label={`Cuenta de ${sesion.nombre}`}>
-          <UserRound strokeWidth={2.4} aria-hidden="true" />
-          <span className="hidden max-w-32 truncate md:inline">{sesion.nombre}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          {sesion.nombre}
-          <span className="block text-xs font-normal text-ink-3">{sesion.rol_nombre}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/mi-clave">
-            <KeyRound strokeWidth={2.4} aria-hidden="true" />
-            Mi contraseña
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={alternarDensidad}>
-          <Rows3 strokeWidth={2.4} aria-hidden="true" />
-          Densidad: {densidad === 'comoda' ? 'Cómoda' : 'Compacta'}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={alternarTema}>
-          {oscuro ? (
-            <Sun strokeWidth={2.4} aria-hidden="true" />
-          ) : (
-            <Moon strokeWidth={2.4} aria-hidden="true" />
-          )}
-          Modo {oscuro ? 'claro' : 'oscuro'}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void salir()}>
-          <LogOut strokeWidth={2.4} aria-hidden="true" />
-          Cerrar sesión
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-
-  const saltoAlContenido = (
-    <a
-      href="#contenido-principal"
-      className="fixed top-3 left-3 z-50 -translate-y-20 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md transition-transform focus-visible:translate-y-0"
-    >
-      Saltar al contenido
-    </a>
-  )
+  const sinRail = sesion.debe_cambiar_clave
 
   return (
-    <div
-      className={cn(
-        'min-h-dvh overflow-x-clip bg-paper',
-        sesion.solo_lectura && '[--franja:5.5rem] sm:[--franja:2.75rem]',
-      )}
-    >
-      {saltoAlContenido}
-      {sesion.solo_lectura ? <FranjaVerComo /> : null}
-
-      <aside
-        className={cn(
-          'fixed top-[var(--franja,0px)] bottom-0 left-0 z-40 hidden overflow-hidden transition-[width] duration-ui md:block',
-          cerrado ? 'md:w-0' : colapsado ? 'md:w-[72px] lg:w-16' : 'md:w-[72px] lg:w-64',
-        )}
-      >
-        {!cerrado ? (
-          <ContenidoNavegacion
-            colapsado={colapsado}
-            mostrarCerrar
-            cerrarBtnRef={cerrarMenuBtnRef}
-          />
-        ) : null}
-      </aside>
-
-      <div
-        className={cn(
-          !cerrado && 'md:pl-[72px]',
-          !cerrado && (colapsado ? 'lg:pl-16' : 'lg:pl-64'),
-        )}
-      >
-        <header className="sticky top-[var(--franja,0px)] z-30 flex h-16 items-center gap-3 border-b border-line bg-paper px-4 md:hidden">
-          <Sheet open={menuAbierto} onOpenChange={setMenuAbierto}>
-            <SheetContent side="left" className="w-64 border-nav-3 bg-nav p-0 text-nav-txt">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Navegación</SheetTitle>
-                <SheetDescription>Secciones disponibles del sistema.</SheetDescription>
-              </SheetHeader>
-              <ContenidoNavegacion colapsado={false} alSeleccionar={() => setMenuAbierto(false)} />
-            </SheetContent>
-          </Sheet>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Abrir navegación"
-            onClick={() => setMenuAbierto(true)}
+    <ContextoPreferencias.Provider value={prefs}>
+      <ProveedorMigas>
+        <div
+          className={cn(
+            'min-h-dvh overflow-x-clip bg-paper',
+            sesion.solo_lectura && '[--franja:5.5rem] sm:[--franja:2.75rem]',
+          )}
+        >
+          <a
+            href="#contenido-principal"
+            className="fixed top-3 left-3 z-50 -translate-y-20 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md transition-transform focus-visible:translate-y-0"
           >
-            <Menu strokeWidth={2.4} />
-          </Button>
-          <Migas />
-        </header>
+            Saltar al contenido
+          </a>
+          {sesion.solo_lectura ? <FranjaVerComo /> : null}
 
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3 sm:px-6 md:px-8">
-          <div className="hidden min-w-0 items-center gap-2 md:flex">
-            {cerrado ? (
-              <Button
-                ref={abrirMenuBtnRef}
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Abrir menú"
-                onClick={() => document.dispatchEvent(new CustomEvent('cerrar-sidebar'))}
-              >
-                <Menu strokeWidth={2.4} />
-              </Button>
-            ) : null}
-            <Migas />
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Buscar en el sistema"
-              onClick={() => window.dispatchEvent(new CustomEvent('abrir-buscador'))}
+          {sinRail ? null : (
+            <aside
+              data-no-imprimir
+              className={cn(
+                'fixed top-[var(--franja,0px)] bottom-0 left-0 z-40 hidden transition-[width] duration-ui md:block',
+                compacto ? 'w-14' : 'w-[84px]',
+              )}
             >
-              <Search strokeWidth={2.4} aria-hidden="true" />
-              <span className="hidden sm:inline">Buscar (⌘K)</span>
-              <span className="sr-only sm:hidden">Buscar</span>
-            </Button>
-            <GuiaPantalla />
-            {menuUsuario}
+              <Rail
+                compacto={compacto}
+                alternar={() => {
+                  setCompacto(!compacto)
+                  guardar(CLAVE_RAIL, compacto ? '0' : '1')
+                }}
+              />
+            </aside>
+          )}
+
+          <div className={cn(!sinRail && (compacto ? 'md:pl-14' : 'md:pl-[84px]'))}>
+            <header
+              data-no-imprimir
+              className="sticky top-[var(--franja,0px)] z-30 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper px-4 py-3 sm:px-6 md:px-8"
+            >
+              <Migas />
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Buscar en el sistema"
+                  onClick={() => window.dispatchEvent(new CustomEvent('abrir-buscador'))}
+                >
+                  <Search strokeWidth={2.4} aria-hidden="true" />
+                  <span className="hidden sm:inline">Buscar (⌘K)</span>
+                  <span className="sr-only sm:hidden">Buscar</span>
+                </Button>
+                <GuiaPantalla />
+              </div>
+            </header>
+
+            {sesion.datos_ficticios ? (
+              <p
+                data-no-imprimir
+                className="border-b border-line bg-brand-soft px-4 py-1.5 text-center text-xs font-semibold tracking-[0.08em] text-brand-deep uppercase sm:px-6 md:px-8"
+              >
+                Prototipo · datos ficticios
+              </p>
+            ) : null}
+
+            <main
+              id="contenido-principal"
+              className="mx-auto w-full max-w-[96rem] p-4 pb-24 sm:p-6 sm:pb-24 md:p-8 md:pb-8"
+            >
+              {puedeVerRuta ? <Outlet /> : <SinPermiso />}
+            </main>
           </div>
-        </header>
 
-        {sesion.datos_ficticios ? (
-          <p
-            data-no-imprimir
-            className="border-b border-line bg-brand-soft px-4 py-1.5 text-center text-xs font-semibold tracking-[0.08em] text-brand-deep uppercase sm:px-6 md:px-8"
-          >
-            Prototipo · datos ficticios
-          </p>
-        ) : null}
-
-        <main id="contenido-principal" className="mx-auto w-full max-w-7xl p-4 sm:p-6 md:p-8">
-          {contenido}
-        </main>
-      </div>
-    </div>
+          {sinRail ? null : <BarraMovil />}
+        </div>
+      </ProveedorMigas>
+    </ContextoPreferencias.Provider>
   )
 }

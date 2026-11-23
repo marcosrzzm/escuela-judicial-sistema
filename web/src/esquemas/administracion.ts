@@ -71,6 +71,8 @@ export const esquemaGrupo = z.object({
     .max(120, 'Máximo 120 caracteres.'),
   turno: z.string().trim().min(1, 'El turno es obligatorio.').max(20, 'Máximo 20 caracteres.'),
   estado: z.enum(['activo', 'cerrado']),
+  /** Vacío quiere decir sin fecha de cierre prevista. */
+  fecha_cierre_prevista: z.string(),
 })
 export type GrupoFormulario = z.infer<typeof esquemaGrupo>
 

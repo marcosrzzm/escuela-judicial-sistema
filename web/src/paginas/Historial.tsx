@@ -1,4 +1,4 @@
-import { CirclePlus, Pencil } from 'lucide-react'
+import { CirclePlus, MailPlus, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSearchParams } from 'react-router-dom'
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { CampoAreaTexto, CampoSelect, CampoTexto } from '@/componentes/CampoFormulario'
+import { DialogoInvitarAlumno } from '@/componentes/DialogoInvitarAlumno'
 import { DialogoMotivo } from '@/componentes/DialogoMotivo'
 import { InsigniaEstado } from '@/componentes/Estados'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
@@ -208,8 +209,9 @@ function DialogoEditarAlumno({
 }
 
 function DetalleAlumno({ id }: { id: number }) {
-  const { puede } = useSesion()
+  const { puede, sesion } = useSesion()
   const [editando, setEditando] = useState(false)
+  const [invitando, setInvitando] = useState(false)
   const h = useDatos<TipoHistorial>(`/alumnos/${id}/historial`)
   const [nuevo, setNuevo] = useState(false)
   const [resolver, setResolver] = useState<TipoHistorial['pendientes'][number] | null>(null)
@@ -231,6 +233,12 @@ function DetalleAlumno({ id }: { id: number }) {
         <p className="text-sm text-ink-3">
           <span className="num">{d.alumno.identificador}</span> · {abiertos} pendientes abiertos
         </p>
+        {sesion?.base === 'coordinacion' && sesion.es_sistema && !d.tiene_cuenta ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setInvitando(true)}>
+            <MailPlus strokeWidth={2.4} aria-hidden="true" />
+            Invitar al alumno
+          </Button>
+        ) : null}
         {puede('alumno', 'modificar') ? (
           <Button type="button" variant="outline" size="sm" onClick={() => setEditando(true)}>
             <Pencil strokeWidth={2.4} aria-hidden="true" />
@@ -246,9 +254,9 @@ function DetalleAlumno({ id }: { id: number }) {
       ) : (
         d.periodos.map((p) => (
           <div key={p.periodo_id} className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold text-ink">
+            <h3 className="font-serif text-lg font-semibold text-ink">
               Periodo {p.periodo}{' '}
-              <span className="text-sm font-normal text-ink-3">· grupo {p.grupo}</span>
+              <span className="font-sans text-sm font-normal text-ink-3">· grupo {p.grupo}</span>
             </h3>
             <div className="overflow-x-auto rounded-lg border border-line bg-card">
               <table className="w-full text-sm">
@@ -341,6 +349,12 @@ function DetalleAlumno({ id }: { id: number }) {
           </ul>
         )}
       </div>
+      {invitando ? (
+        <DialogoInvitarAlumno
+          alumno={{ id: d.alumno.id, nombre: d.alumno.nombre }}
+          alCerrar={() => setInvitando(false)}
+        />
+      ) : null}
       <DialogoPendiente datos={d} abierto={nuevo} alCambiarApertura={setNuevo} />
       {editando ? (
         <DialogoEditarAlumno alumno={d.alumno} alCerrar={() => setEditando(false)} />
@@ -364,10 +378,14 @@ function DetalleAlumno({ id }: { id: number }) {
 }
 
 export function Historial() {
+  const { sesion } = useSesion()
+  const esAlumno = sesion?.base === 'alumno'
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const elegido = Number(params.get('alumno')) || null
-  const lista = useDatos<{ filas: AlumnoBusqueda[] }>(`/alumnos?q=${encodeURIComponent(q)}`)
+  const lista = useDatos<{ filas: AlumnoBusqueda[] }>(
+    esAlumno ? null : `/alumnos?q=${encodeURIComponent(q)}`,
+  )
   function poner(cambios: Record<string, string | null>) {
     const n = new URLSearchParams(params)
     for (const [k, v] of Object.entries(cambios)) {
@@ -386,6 +404,16 @@ export function Historial() {
       render: (a) => Number(a.pendientes_abiertos),
     },
   ]
+  // El alumno ve solo su propia boleta: nunca la búsqueda ni la lista de otros.
+  if (esAlumno && sesion?.alumno_id)
+    return (
+      <Pagina
+        titulo="Mi boleta"
+        descripcion="Tus calificaciones aceptadas por periodo y tus pendientes. Las entregas que aún no se aceptan no aparecen."
+      >
+        <DetalleAlumno id={sesion.alumno_id} />
+      </Pagina>
+    )
   return (
     <Pagina
       titulo="Historial del alumno"
@@ -420,7 +448,7 @@ export function Historial() {
             : {
                 variante: 'vacio',
                 titulo: 'Todavía no hay alumnos',
-                descripcion: 'Agrega alumnos en Grupos y listas.',
+                descripcion: 'Agrega alumnos en la pestaña Personas de un grupo.',
               }
         }
       />

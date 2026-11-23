@@ -4,19 +4,23 @@ import { useSearchParams } from 'react-router-dom'
 import { CampoSelect } from '@/componentes/CampoFormulario'
 import type { Grupo, Periodo } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
+import { useGrupoContexto } from '@/lib/grupoContexto'
 
 export function useSeleccionGrupo() {
+  const enGrupo = useGrupoContexto()
   const [params, setParams] = useSearchParams()
-  const periodos = useDatos<{ filas: Periodo[] }>('/periodos')
+  const periodos = useDatos<{ filas: Periodo[] }>(enGrupo ? null : '/periodos')
   const lista = periodos.datos?.filas ?? []
   const periodoId =
     Number(params.get('periodo')) ||
     (lista.find((p) => p.estado === 'abierto') ?? lista[0])?.id ||
     null
-  const grupos = useDatos<{ filas: Grupo[] }>(periodoId ? `/grupos?periodo_id=${periodoId}` : null)
-  const filasGrupos = grupos.datos?.filas ?? []
+  const grupos = useDatos<{ filas: Grupo[] }>(
+    periodoId && !enGrupo ? `/grupos?periodo_id=${periodoId}` : null,
+  )
+  const filasGrupos = enGrupo ? [enGrupo] : (grupos.datos?.filas ?? [])
   const pedido = Number(params.get('grupo'))
-  const grupo = filasGrupos.find((g) => g.id === pedido) ?? filasGrupos[0] ?? null
+  const grupo = enGrupo ?? filasGrupos.find((g) => g.id === pedido) ?? filasGrupos[0] ?? null
 
   function cambiar(cambios: Record<string, string | null>) {
     const nuevo = new URLSearchParams(params)
@@ -30,8 +34,9 @@ export function useSeleccionGrupo() {
   return {
     periodos: lista,
     grupos: filasGrupos,
-    periodoId,
+    periodoId: enGrupo?.periodo_id ?? periodoId,
     grupo,
+    enGrupo: enGrupo !== null,
     cargando: periodos.cargando || grupos.cargando,
     error: periodos.error ?? grupos.error,
     reintentar: () => {
@@ -44,6 +49,8 @@ export function useSeleccionGrupo() {
 }
 
 export function SelectorGrupo({ seleccion }: { seleccion: ReturnType<typeof useSeleccionGrupo> }) {
+  // Dentro de la página del grupo el grupo ya está elegido arriba.
+  if (seleccion.enGrupo) return null
   return (
     <div className="grid grid-cols-1 gap-3 sm:max-w-3xl sm:grid-cols-2 [&>*]:min-w-0 [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-value]]:truncate">
       <CampoSelect

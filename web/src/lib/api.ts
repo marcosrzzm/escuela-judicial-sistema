@@ -244,6 +244,7 @@ export type Autorizaciones = {
 
 export type Historial = {
   alumno: { id: number; identificador: string; nombre: string; estatus: string }
+  tiene_cuenta: boolean
   periodos: {
     periodo_id: number
     periodo: string

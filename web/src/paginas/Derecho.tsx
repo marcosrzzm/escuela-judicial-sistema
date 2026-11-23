@@ -27,6 +27,8 @@ import {
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
 import { fechaHora, resolverZod } from '@/lib/formulario'
+import { useGrupoContexto } from '@/lib/grupoContexto'
+import { useSesion } from '@/lib/sesion'
 
 function DialogoDecision({
   asignacionId,
@@ -125,8 +127,13 @@ function DialogoDecision({
 
 export function Derecho() {
   const [params, setParams] = useSearchParams()
-  const asignaciones = useDatos<{ filas: Asignacion[] }>('/asignaciones')
-  const filas = asignaciones.datos?.filas ?? []
+  const grupo = useGrupoContexto()
+  const { puede } = useSesion()
+  const asignaciones = useDatos<{ filas: Asignacion[] }>(
+    grupo ? `/asignaciones?periodo_id=${grupo.periodo_id}` : '/asignaciones',
+  )
+  // Dentro de la página del grupo solo salen las materias de ese grupo.
+  const filas = (asignaciones.datos?.filas ?? []).filter((a) => !grupo || a.grupo_id === grupo.id)
   const actual = filas.find((a) => a.id === Number(params.get('asignacion'))) ?? filas[0] ?? null
   const detalle = useDatos<DetalleAsignacion>(actual ? `/asignaciones/${actual.id}` : null)
   const [elegido, setElegido] = useState<AlumnoAsignacion | null>(null)
@@ -192,17 +199,21 @@ export function Derecho() {
             filas={detalle.datos.alumnos}
             claveFila={(a) => a.alumno_id}
             descripcion={`Decisiones de ${actual.materia} en ${actual.grupo}`}
-            accionesFila={(a) => (
-              <Button type="button" variant="outline" size="sm" onClick={() => setElegido(a)}>
-                <Scale strokeWidth={2.4} aria-hidden="true" />
-                {a.decision ? 'Cambiar decisión' : 'Registrar decisión'}
-              </Button>
-            )}
+            accionesFila={
+              puede('decision_evaluacion', 'crear')
+                ? (a) => (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setElegido(a)}>
+                      <Scale strokeWidth={2.4} aria-hidden="true" />
+                      {a.decision ? 'Cambiar decisión' : 'Registrar decisión'}
+                    </Button>
+                  )
+                : undefined
+            }
             vacio={{
               variante: 'vacio',
               titulo: 'Este grupo no tiene alumnos vigentes',
               descripcion:
-                'Agrega alumnos en Grupos y listas para poder registrar su derecho a evaluación.',
+                'Agrega alumnos en Personas para poder registrar su derecho a evaluación.',
             }}
           />
           {detalle.datos.historial_decisiones.length > 0 ? (

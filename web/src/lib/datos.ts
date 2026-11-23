@@ -16,10 +16,11 @@ export class ErrorApi extends Error {
   }
 }
 
-export function useDatos<T>(ruta: string | null) {
+export function useDatos<T>(ruta: string | null, opciones: { cadaMs?: number } = {}) {
   const q = useQuery({
     queryKey: ['api', ruta],
     enabled: ruta !== null,
+    refetchInterval: opciones.cadaMs,
     queryFn: async () => {
       const r = await leer<T>(ruta as string)
       if (!r.ok) throw new ErrorApi(r.codigo, r.error)

@@ -12,16 +12,17 @@ import { Autorizaciones } from '@/paginas/Autorizaciones'
 import { Bitacora } from '@/paginas/Bitacora'
 import { Catalogos } from '@/paginas/Catalogos'
 import { Boletas } from '@/paginas/Boletas'
-import { CierreLote } from '@/paginas/Cierre'
-import { Derecho } from '@/paginas/Derecho'
 import { Entrar } from '@/paginas/Entrar'
-import { Grupos } from '@/paginas/Grupos'
+import { Avisos } from '@/paginas/Avisos'
+import { Calendario } from '@/paginas/Calendario'
+import { Cuenta } from '@/paginas/Cuenta'
+import { GrupoPagina } from '@/paginas/GrupoPagina'
+import { IrASeccionDeGrupo, ListaGrupos } from '@/paginas/ListaGrupos'
+import { Tablero } from '@/paginas/Tablero'
 import { Historial } from '@/paginas/Historial'
-import { Inicio } from '@/paginas/Inicio'
 import { Lotes } from '@/paginas/Lotes'
 import { Metricas } from '@/paginas/Metricas'
 import { MiClave } from '@/paginas/MiClave'
-import { MisListas } from '@/paginas/MisListas'
 import { NoEncontrado } from '@/paginas/NoEncontrado'
 import { Revision } from '@/paginas/Revision'
 import { Usuarios } from '@/paginas/Usuarios'
@@ -53,20 +54,26 @@ export default function App() {
         <Route path="/restablecer" element={<RestablecerClave />} />
 
         <Route element={<ShellConBuscador />}>
-          <Route index element={<Inicio />} />
-          <Route path="grupos" element={<Grupos />} />
-          <Route path="derecho" element={<Derecho />} />
+          <Route index element={<Tablero />} />
+          <Route path="grupos" element={<ListaGrupos />} />
+          <Route path="grupos/:id" element={<GrupoPagina />} />
+          <Route path="grupos/:id/:seccion" element={<GrupoPagina />} />
+          <Route path="calendario" element={<Calendario />} />
+          <Route path="avisos" element={<Avisos />} />
+          <Route path="cuenta" element={<Cuenta />} />
+          <Route path="derecho" element={<IrASeccionDeGrupo seccion="derecho" />} />
           <Route path="revision" element={<Revision />} />
           <Route path="historial" element={<Historial />} />
-          <Route path="cierre" element={<CierreLote />} />
+          <Route path="cierre" element={<IrASeccionDeGrupo seccion="cierre" />} />
           <Route path="boletas/:cierreId" element={<Boletas />} />
           <Route path="metricas" element={<Metricas />} />
           <Route path="bitacora" element={<Bitacora />} />
           <Route path="asignaciones" element={<MisAsignaciones />} />
           <Route path="asignaciones/:id" element={<Asignacion />} />
+          <Route path="asignaciones/:id/:tab" element={<Asignacion />} />
           <Route path="autorizaciones" element={<Autorizaciones />} />
           <Route path="lotes" element={<Lotes />} />
-          <Route path="listas" element={<MisListas />} />
+          <Route path="listas" element={<ListaGrupos />} />
           <Route path="catalogos" element={<Catalogos />} />
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="mi-clave" element={<MiClave />} />

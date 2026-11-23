@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { areasVisibles, rutaInicial, rutaPermitida } from '@/lib/navegacion'
+import { areasVisibles, itemsRail, rutaInicial, rutaPermitida } from '@/lib/navegacion'
 
 const soloVerDireccion = {
   base: 'direccion' as const,
@@ -39,5 +39,48 @@ describe('navegación por base y permiso', () => {
       permisos: ['usuario:crear'],
     }
     expect(areasVisibles(coordinacion).map((a) => a.clave)).toEqual(['usuarios'])
+  })
+
+  it('la barra global cambia por rol y todos entran al Tablero', () => {
+    const coordinacion = {
+      base: 'coordinacion' as const,
+      debe_cambiar_clave: false,
+      permisos: [
+        'periodo:ver',
+        'grupo:ver',
+        'pendiente_academico:ver',
+        'bitacora_cambio:ver',
+        'usuario:crear',
+      ],
+    }
+    const claves = itemsRail(coordinacion).map((i) => i.clave)
+    expect(claves).toEqual([
+      'tablero',
+      'grupos',
+      'calendario',
+      'avisos',
+      'historial',
+      'administracion',
+    ])
+    expect(
+      itemsRail(coordinacion)
+        .at(-1)
+        ?.hijos?.map((h) => h.ruta),
+    ).toEqual(['/usuarios', '/bitacora'])
+    expect(rutaInicial(coordinacion)).toBe('/')
+
+    const alumno = {
+      base: 'alumno' as const,
+      debe_cambiar_clave: false,
+      permisos: ['periodo:ver', 'pendiente_academico:ver'],
+    }
+    expect(itemsRail(alumno).map((i) => i.etiqueta)).toEqual([
+      'Tablero',
+      'Calendario',
+      'Avisos',
+      'Boleta',
+    ])
+    expect(rutaPermitida('/bitacora', alumno)).toBe(false)
+    expect(rutaPermitida('/historial', alumno)).toBe(true)
   })
 })
