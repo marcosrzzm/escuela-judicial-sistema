@@ -23,6 +23,9 @@ const CUENTAS = [
   ['auxiliar@prueba.local', 'Auxiliar'],
 ] as const
 
+// ponytail: el navegador rechaza un correo con un espacio o un carácter invisible pegado; se quitan al escribir.
+const limpiarCorreo = (v: string) => v.replace(/[\s\u00A0\u00AD\u200B-\u200F\u2060\uFEFF]/g, '')
+
 export function Entrar() {
   const { sesion, entrar, cargando } = useSesion()
   const ubicacion = useLocation()
@@ -82,10 +85,9 @@ export function Entrar() {
               <form className="flex flex-col gap-4" onSubmit={pedirClave}>
                 <CampoTexto
                   etiqueta="Correo"
-                  tipo="email"
                   obligatorio
                   valor={correo}
-                  alCambiar={setCorreo}
+                  alCambiar={(v) => setCorreo(limpiarCorreo(v))}
                 />
                 <Button type="submit" disabled={entrando || !correo}>
                   {entrando ? 'Enviando…' : 'Pedir restablecimiento'}
@@ -119,10 +121,9 @@ export function Entrar() {
           <form id="form-entrar" className="flex flex-col gap-4" onSubmit={alEnviar}>
             <CampoTexto
               etiqueta="Correo"
-              tipo="email"
               obligatorio
               valor={correo}
-              alCambiar={setCorreo}
+              alCambiar={(v) => setCorreo(limpiarCorreo(v))}
               placeholder="nombre@prueba.local"
             />
             <div className="flex flex-col gap-1.5">

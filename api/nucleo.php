@@ -129,6 +129,14 @@ function cuerpo_json(): array
     return is_array($d) ? $d : [];
 }
 
+/** Correo tal como se guarda: sin espacios ni caracteres invisibles que se cuelan al copiar y pegar. */
+function correo_limpio(array $d): string
+{
+    $v = is_string($d['correo'] ?? null) ? $d['correo'] : '';
+    $v = preg_replace('/[\s\x{00A0}\x{00AD}\x{200B}-\x{200F}\x{2060}\x{FEFF}]/u', '', $v) ?? '';
+    return mb_strtolower(texto(['correo' => $v], 'correo', 160, 'El correo'));
+}
+
 function texto(array $d, string $campo, int $max, string $etiqueta, bool $obligatorio = true): string
 {
     $v = $d[$campo] ?? '';
