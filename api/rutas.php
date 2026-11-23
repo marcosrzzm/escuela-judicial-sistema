@@ -147,4 +147,5 @@ return [
     ['GET', '/actividades/{id}/publicaciones', 'ruta_publicaciones'],
     ['POST', '/actividades/{id}/publicaciones', 'ruta_publicar_en_foro'],
     ['PUT', '/publicaciones/{id}/ocultar', 'ruta_ocultar_publicacion'],
+    ['GET', '/respaldo/ultimo', 'ruta_ultimo_respaldo'],
 ];

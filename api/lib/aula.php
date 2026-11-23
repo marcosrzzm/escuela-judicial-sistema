@@ -487,3 +487,18 @@ function ruta_editar_elemento(array $a): never
     cambiar_estado_de('elemento_modulo', 'elemento_modulo', $e, $d);
     responder(200, ['id' => (int) $e['id']]);
 }
+
+// --- Respaldo diario (12.11) -------------------------------------------------------------------------
+
+/** Fecha y tamaño del último respaldo, solo para Coordinación y sin descarga: el archivo vive fuera de la carpeta pública. */
+function ruta_ultimo_respaldo(): never
+{
+    exigir_admin('usuario', 'crear');
+    $ultimo = null;
+    foreach (glob(rtrim((string) config('respaldos_dir'), '/') . '/respaldo-*.sql.gz') ?: [] as $f) {
+        if (preg_match('/respaldo-\d{4}-\d{2}-\d{2}-\d{4}\.sql\.gz$/', $f) === 1 && ($ultimo === null || filemtime($f) > filemtime($ultimo))) {
+            $ultimo = $f;
+        }
+    }
+    responder(200, ['ultimo' => $ultimo === null ? null : ['fecha' => gmdate('Y-m-d H:i:s', (int) filemtime($ultimo)), 'bytes' => (int) filesize($ultimo)]]);
+}

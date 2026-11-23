@@ -11,6 +11,9 @@ mkdir -p publicar/api
 cp -R web/dist/. publicar/
 cp api/index.php api/nucleo.php api/ajustes.php api/permisos.php api/rutas.php publicar/api/
 cp -R api/lib publicar/api/lib
+# Respaldo diario: se corre solo por cron con php CLI. Dentro de la carpeta pública no se sirve por web (la regla de /api
+# lo manda a index.php, el .htaccess lo niega y el propio archivo se niega a correr fuera de CLI).
+cp scripts/respaldo-diario.php publicar/api/
 
 cat > publicar/.htaccess <<'HTACCESS'
 # Fuerza HTTPS, manda /api a index.php y el resto de la interfaz a index.html.
@@ -35,6 +38,11 @@ RewriteRule ^ index.html [L]
   Header always set X-Robots-Tag "noindex, nofollow"
 </IfModule>
 
+# El respaldo es solo para cron: nunca por web.
+<Files "respaldo-diario.php">
+  Require all denied
+</Files>
+
 # Ningún archivo que empiece con punto (excepto este) se sirve.
 <FilesMatch "^\.(?!htaccess)">
   Require all denied
@@ -53,4 +61,4 @@ if grep -rIl -e "Prueba2026" -e "DB_CONTRASENA=" publicar | grep -q .; then
   echo "ERROR: publicar/ contiene una credencial" >&2
   exit 1
 fi
-echo "publicar/ listo. Antes de subirla: crear en el hosting ej-config.env un nivel arriba de public_html (ENTORNO=produccion y los datos de la base) y aplicar sql/01 y sql/02, y sql/03, sql/04 y sql/05 (aditivas, se pueden repetir; con respaldo si la base ya tiene datos); para enviar correo, en ej-config.env también RESEND_API_KEY, CORREO_REMITENTE y SITIO_URL. La semilla de demostración solo va en el temporal de validación, con contraseñas propias de cada cuenta (seguridad/accesos-demo.md)."
+echo "publicar/ listo. Antes de subirla: crear en el hosting ej-config.env un nivel arriba de public_html (ENTORNO=produccion y los datos de la base) y aplicar sql/01 y sql/02, y sql/03, sql/04, sql/05 y sql/06 (aditivas, se pueden repetir; con respaldo si la base ya tiene datos); crear un nivel arriba de la carpeta pública ej-archivos y ej-respaldos (permisos 750, fuera de la web); programar en el cron del hosting, una vez al día, php <ruta del sitio>/public_html/api/respaldo-diario.php; para enviar correo, en ej-config.env también RESEND_API_KEY, CORREO_REMITENTE y SITIO_URL. La semilla de demostración solo va en el temporal de validación, con contraseñas propias de cada cuenta (seguridad/accesos-demo.md)."
