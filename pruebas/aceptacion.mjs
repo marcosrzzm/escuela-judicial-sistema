@@ -1,4 +1,4 @@
-// Criterios de aceptación CA-01 a CA-14 (especificación, sección 7) contra la API local.
+// Criterios de aceptación CA-01 a CA-20 (especificación, sección 7) contra la API local.
 // Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
 // Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
 //   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
@@ -44,9 +44,9 @@ class Cliente {
   put = (ruta, cuerpo = {}) => this.pedir('PUT', ruta, cuerpo)
 }
 
-async function entrar(correo) {
+async function entrar(correo, clave) {
   const c = new Cliente(correo)
-  const r = await c.post('/login', { correo, clave: CLAVES[correo] ?? 'Prueba2026' })
+  const r = await c.post('/login', { correo, clave: clave ?? CLAVES[correo] ?? 'Prueba2026' })
   if (r.estado !== 200) throw new Error(`No pude entrar como ${correo}: ${r.estado} ${JSON.stringify(r.datos)}`)
   return c
 }
@@ -263,6 +263,160 @@ ca('CA-14', 'No hay ruta ni botón que firme o escriba en la plataforma oficial'
   }
   const b = (await coord.get(`/cierres/${ctx.cierreG1}/boletas`)).datos
   igual(b.leyenda, 'Pendiente de firma institucional', 'Leyenda de las boletas')
+})
+
+// --- CA-15 a CA-20: administración y uso real (especificación, sección 10) ---------------------
+const CLAVE_NUEVA = 'Clave-De-Prueba-2026'
+const CORREO_DOCENTE_NUEVO = 'docente.nuevo@prueba.local'
+const sinSecretos = (filas, secretos) => {
+  const texto = JSON.stringify(filas)
+  return !texto.includes('$2y$') && secretos.every((x) => !texto.includes(x))
+}
+
+ca('CA-15', 'Docente nuevo: contraseña temporal solo permite cambiarla; luego entra a Mis asignaciones; la bitácora no la guarda', async () => {
+  const alta = await coord.post('/usuarios', { nombre: 'Dr. Nuevo Docente', correo: CORREO_DOCENTE_NUEVO, rol: 'docente' })
+  igual(alta.estado, 200, 'Alta del docente')
+  const temporal = alta.datos.clave_temporal
+  afirmar(typeof temporal === 'string' && temporal.length >= 10, 'Falta la contraseña temporal')
+  const nuevo = await entrar(CORREO_DOCENTE_NUEVO, temporal)
+  const s = (await nuevo.get('/sesion')).datos
+  igual(s.debe_cambiar_clave, true, 'Marca de contraseña temporal')
+  for (const [m, ruta] of [['GET', '/asignaciones'], ['GET', '/periodos'], ['GET', '/bitacora'], ['POST', '/metricas/tiempo']]) {
+    igual((await nuevo.pedir(m, ruta, m === 'GET' ? undefined : {})).estado, 403, `${m} ${ruta} con contraseña temporal`)
+  }
+  igual((await nuevo.put('/mi-clave', { actual: temporal, nueva: 'corta', confirmacion: 'corta' })).estado, 422, 'Contraseña corta')
+  igual((await nuevo.put('/mi-clave', { actual: temporal, nueva: CORREO_DOCENTE_NUEVO, confirmacion: CORREO_DOCENTE_NUEVO })).estado, 422, 'Contraseña igual al correo')
+  igual((await nuevo.put('/mi-clave', { actual: temporal, nueva: CLAVE_NUEVA, confirmacion: `${CLAVE_NUEVA}x` })).estado, 422, 'Confirmación distinta')
+  igual((await nuevo.put('/mi-clave', { actual: temporal, nueva: CLAVE_NUEVA, confirmacion: CLAVE_NUEVA })).estado, 200, 'Cambio de contraseña')
+  igual((await nuevo.get('/asignaciones')).estado, 200, 'Mis asignaciones después de cambiarla')
+  igual((await nuevo.get('/sesion')).datos.debe_cambiar_clave, false, 'La marca sigue puesta')
+  const b = (await coord.get('/bitacora?entidad=usuario')).datos.filas
+  afirmar(b.some((f) => f.accion === 'alta' && f.despues?.correo === CORREO_DOCENTE_NUEVO), 'La alta no está en la bitácora')
+  afirmar(sinSecretos(b, [temporal, CLAVE_NUEVA]), 'La bitácora guarda una contraseña o un hash')
+  ctx.docenteNuevo = { id: s.id, cliente: nuevo }
+})
+
+ca('CA-16', 'Rol "Consulta de Dirección" de solo ver: ve Autorizaciones y Bitácora, no resuelve; fuera del techo responde 422', async () => {
+  const roles = (await coord.get('/roles')).datos
+  const solo_ver = roles.techos.direccion.filter((p) => p.endsWith(':ver'))
+  const rol = await coord.post('/roles', { nombre: 'Consulta de Dirección', base: 'direccion', permisos: solo_ver })
+  igual(rol.estado, 200, 'Alta del rol')
+  igual((await coord.post('/roles', { nombre: 'Rol de más', base: 'direccion', permisos: ['entrega_calificaciones:aceptar'] })).estado, 422, 'Permiso fuera de la base')
+  igual((await coord.post('/roles', { nombre: 'Rol admin', base: 'coordinacion', permisos: ['usuario:crear'] })).estado, 422, 'Administración de usuarios')
+  igual((await coord.post('/roles', { nombre: 'Rol ver como', base: 'coordinacion', permisos: ['ver_como:ver'] })).estado, 422, 'Ver como')
+  igual((await coord.put(`/roles/${roles.filas[0].id}`, { nombre: 'Otro', estado: 'activo', permisos: [] })).estado, 409, 'Editar un rol del sistema')
+  const alta = await coord.post('/usuarios', { nombre: 'Consulta Dirección', correo: 'consulta.direccion@prueba.local', rol: rol.datos.clave })
+  igual(alta.estado, 200, 'Alta de la cuenta con el rol nuevo')
+  const c = await entrar('consulta.direccion@prueba.local', alta.datos.clave_temporal)
+  igual((await c.put('/mi-clave', { actual: alta.datos.clave_temporal, nueva: CLAVE_NUEVA, confirmacion: CLAVE_NUEVA })).estado, 200, 'Cambio de contraseña')
+  igual((await c.get('/autorizaciones')).estado, 200, 'Ver Autorizaciones')
+  igual((await c.get('/bitacora')).estado, 200, 'Ver Bitácora')
+  igual((await c.put('/decisiones/1/resolver', { resolucion: 'autorizada', motivo: 'x' })).estado, 403, 'Resolver una decisión')
+  igual((await c.put('/cierres/1/resolver', { resolucion: 'aprobar', motivo: 'x' })).estado, 403, 'Resolver un cierre')
+  igual((await c.get('/usuarios')).estado, 403, 'Un rol personalizado no administra usuarios')
+  // Cambiar los permisos de un rol cierra las sesiones de sus cuentas.
+  const quitar = await coord.put(`/roles/${rol.datos.id}`, { nombre: 'Consulta de Dirección', estado: 'activo', permisos: solo_ver.filter((p) => p !== 'bitacora_cambio:ver') })
+  igual(quitar.estado, 200, 'Editar el rol')
+  igual((await c.get('/sesion')).estado, 401, 'La sesión de la cuenta sigue abierta tras cambiar el rol')
+  igual((await coord.put(`/roles/${rol.datos.id}`, { nombre: 'Consulta de Dirección', estado: 'inactivo', permisos: solo_ver })).estado, 409, 'Inactivar un rol con cuentas activas')
+})
+
+ca('CA-17', 'Ver como Docente A: lee lo que él ve, escribir responde 403, los latidos no se guardan y la bitácora lo registra', async () => {
+  const idDocA = (await docA.get('/sesion')).datos.id
+  const antes = (await docA.get(`/asignaciones/${asigA.id}`)).datos
+  const tiempoAntes = (await coord.get('/metricas')).datos.sistema.find((c) => c.grupo_id === g1.id && c.tipo === 'lista').segundos_activos
+  igual((await coord.post(`/ver-como/${(await coord.get('/sesion')).datos.id}`)).estado, 409, 'Ver como uno mismo')
+  igual((await coord.post(`/ver-como/${idDocA}`)).estado, 200, 'Entrar a Ver como')
+  try {
+    const s = (await coord.get('/sesion')).datos
+    igual([s.solo_lectura, s.base, s.actor_real.nombre], [true, 'docente', 'Lic. Marina Solís'], 'Sesión en vista')
+    const mias = (await coord.get(`/asignaciones?periodo_id=${abierto.id}`)).datos.filas
+    afirmar(mias.some((a) => a.id === asigA.id) && !mias.some((a) => a.id === asigB.id), 'La vista no es la del docente')
+    igual((await coord.get('/usuarios')).estado, 403, 'Administración dentro de la vista')
+    igual((await coord.post(`/entregas/${ctx.entregaA2}/enviar`, { calificaciones: [] })).estado, 403, 'Enviar dentro de la vista')
+    igual((await coord.put('/mi-clave', { actual: 'x', nueva: 'x', confirmacion: 'x' })).estado, 403, 'Cambiar contraseña dentro de la vista')
+    const latido = await coord.post('/metricas/tiempo', { tipo: 'lista', grupo_id: g1.id, segundos: 30 })
+    igual([latido.estado, latido.datos.segundos_aceptados], [200, 0], 'Latido dentro de la vista')
+  } finally {
+    igual((await coord.post('/ver-como/salir')).estado, 200, 'Salir de la vista')
+  }
+  igual((await coord.get('/sesion')).datos.solo_lectura, false, 'La vista sigue puesta')
+  igual((await docA.get(`/asignaciones/${asigA.id}`)).datos, antes, 'La entrega del docente cambió')
+  igual((await coord.get('/metricas')).datos.sistema.find((c) => c.grupo_id === g1.id && c.tipo === 'lista').segundos_activos, tiempoAntes, 'Los segundos activos cambiaron')
+  const b = (await dir.get('/bitacora?entidad=usuario')).datos.filas
+  afirmar(b.some((f) => f.accion === 'ver_como_inicio' && f.usuario === 'Lic. Marina Solís'), 'Falta el inicio de la vista')
+  afirmar(b.some((f) => f.accion === 'ver_como_fin' && f.usuario === 'Lic. Marina Solís'), 'Falta el fin de la vista')
+  const negados = (await dir.get('/bitacora?accion=acceso_denegado&q=Marina')).datos.filas
+  afirmar(negados.some((f) => /vista de solo lectura/.test(f.motivo ?? '')), 'El intento de escritura no quedó a nombre de Coordinación')
+})
+
+ca('CA-18', 'Docente A no crea usuarios ni roles ni ve como otro usuario; los tres intentos quedan como acceso denegado', async () => {
+  const cuenta = async () => (await coord.get('/bitacora?accion=acceso_denegado&q=Ana%20Torres')).datos.total
+  const antes = await cuenta()
+  igual((await docA.post('/usuarios', { nombre: 'X', correo: 'x@prueba.local', rol: 'docente' })).estado, 403, 'Crear usuario')
+  igual((await docA.post('/roles', { nombre: 'X', base: 'docente', permisos: [] })).estado, 403, 'Crear rol')
+  igual((await docA.post('/ver-como/1')).estado, 403, 'Ver como otro usuario')
+  igual((await cuenta()) - antes, 3, 'Intentos registrados')
+  igual((await docA.get('/sesion')).datos.solo_lectura, false, 'Docente A quedó en una vista')
+})
+
+ca('CA-19', 'Desactivar una cuenta con sesión abierta: 401 y no entra; la última Coordinación no se desactiva', async () => {
+  const alta = await coord.post('/usuarios', { nombre: 'Cuenta Temporal', correo: 'cuenta.temporal@prueba.local', rol: 'auxiliar' })
+  const t = await entrar('cuenta.temporal@prueba.local', alta.datos.clave_temporal)
+  igual((await t.get('/sesion')).estado, 200, 'Sesión de la cuenta temporal')
+  igual((await coord.put(`/usuarios/${alta.datos.id}`, { nombre: 'Cuenta Temporal', correo: 'cuenta.temporal@prueba.local', rol: 'auxiliar', estado: 'inactivo' })).estado, 200, 'Desactivar')
+  igual((await t.get('/sesion')).estado, 401, 'Petición de la cuenta desactivada')
+  igual((await t.post('/login', { correo: 'cuenta.temporal@prueba.local', clave: alta.datos.clave_temporal })).estado, 401, 'Inicio de sesión de la cuenta desactivada')
+  const yo = (await coord.get('/sesion')).datos
+  const mia = { nombre: yo.nombre, correo: yo.correo, rol: 'coordinacion', estado: 'activo' }
+  igual((await coord.put(`/usuarios/${yo.id}`, { ...mia, estado: 'inactivo' })).estado, 409, 'Desactivar a la última Coordinación')
+  igual((await coord.put(`/usuarios/${yo.id}`, { ...mia, rol: 'docente' })).estado, 409, 'Quitarle el rol a la última Coordinación')
+  igual((await coord.get('/sesion')).estado, 200, 'La Coordinación quedó sin sesión')
+  const reinicio = await coord.put(`/usuarios/${(await docB.get('/sesion')).datos.id}/clave-temporal`)
+  igual(reinicio.estado, 200, 'Restablecer contraseña')
+  igual((await docB.get('/sesion')).estado, 401, 'La sesión de Docente B sobrevivió al restablecimiento')
+  const b = (await coord.get('/bitacora?entidad=usuario')).datos.filas
+  afirmar(sinSecretos(b, [reinicio.datos.clave_temporal, alta.datos.clave_temporal]), 'La bitácora guarda una contraseña o un hash')
+  ctx.docBRestablecido = reinicio.datos.clave_temporal
+})
+
+ca('CA-20', 'Catálogos y CSV: periodo, materia y grupo nuevos, asignación al docente nuevo e importación con repetidas rechazadas', async () => {
+  const per = await coord.post('/periodos', { nombre: '2027-A', fecha_inicio: '2027-01-11', fecha_fin: '2027-06-25' })
+  igual(per.estado, 200, 'Alta del periodo')
+  igual((await coord.post('/periodos', { nombre: '2027-A', fecha_inicio: '2027-01-11', fecha_fin: '2027-06-25' })).estado, 422, 'Periodo repetido')
+  const mat = await coord.post('/materias', { clave: 'ADM-1', nombre: 'Administración de justicia' })
+  igual(mat.estado, 200, 'Alta de la materia')
+  igual((await coord.post('/materias', { clave: 'ADM-1', nombre: 'Otra' })).estado, 422, 'Clave de materia repetida')
+  const gru = await coord.post('/grupos', { periodo_id: per.datos.id, clave: 'ADM-01', programa: 'Especialidad de prueba', turno: 'Matutino' })
+  igual(gru.estado, 200, 'Alta del grupo')
+  const asig = await coord.post('/asignaciones', { grupo_id: gru.datos.id, materia_id: mat.datos.id, docente_id: ctx.docenteNuevo.id })
+  igual(asig.estado, 200, 'Alta de la asignación')
+  igual((await coord.post('/asignaciones', { grupo_id: gru.datos.id, materia_id: mat.datos.id, docente_id: ctx.docenteNuevo.id })).estado, 409, 'Asignación repetida')
+  const idDirector = (await dir.get('/sesion')).datos.id
+  igual((await coord.post('/asignaciones', { grupo_id: gru.datos.id, materia_id: 1, docente_id: idDirector })).estado, 422, 'Asignar a una cuenta que no es docente')
+  igual((await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: (await docA.get('/sesion')).datos.id, motivo: '  ' })).estado, 422, 'Cambiar docente sin motivo')
+  const csv = '﻿matrícula,nombre\r\nIMP-001,Ana Prueba Uno\r\nIMP-002,Beto Prueba Dos\r\nIMP-001,Ana Repetida\r\n,Sin matrícula\r\nmal matrícula,Con espacios\r\n'
+  const imp = await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: csv })
+  igual(imp.estado, 200, 'Importar')
+  igual([imp.datos.creadas, imp.datos.inscritas, imp.datos.rechazadas.length], [2, 2, 3], 'Resumen de la importación')
+  afirmar(imp.datos.rechazadas.some((r) => r.matricula === 'IMP-001' && /RN-01/.test(r.razon)), 'La repetida no cita RN-01')
+  const otra = await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: 'IMP-002;Beto Prueba Dos\nIMP-003;Carla Prueba Tres' })
+  igual([otra.datos.creadas, otra.datos.inscritas, otra.datos.rechazadas.length], [1, 1, 1], 'Segunda importación (sin cabecera, con punto y coma)')
+  igual((await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: '' })).estado, 422, 'Archivo vacío')
+  igual((await docA.post(`/grupos/${gru.datos.id}/importar`, { texto: 'IMP-009,X' })).estado, 403, 'Importar sin permiso')
+  const lista = (await coord.get(`/grupos/${gru.datos.id}/lista`)).datos.alumnos.filter((a) => a.estado === 'activa')
+  igual(lista.length, 3, 'Lista vigente del grupo nuevo')
+  const delDocente = (await ctx.docenteNuevo.cliente.get(`/asignaciones?periodo_id=${per.datos.id}`)).datos.filas
+  igual(delDocente.length, 1, 'Asignaciones del docente nuevo')
+  const detalle = (await ctx.docenteNuevo.cliente.get(`/asignaciones/${delDocente[0].id}`)).datos
+  igual(detalle.alumnos.map((a) => a.identificador).sort(), ['IMP-001', 'IMP-002', 'IMP-003'], 'Lista que ve el docente')
+  const al = detalle.alumnos[0]
+  igual((await coord.put(`/alumnos/${al.alumno_id}`, { identificador: al.identificador, nombre: 'Nombre Corregido', estatus: 'activo', motivo: '' })).estado, 422, 'Editar alumno sin motivo')
+  igual((await coord.put(`/alumnos/${al.alumno_id}`, { identificador: al.identificador, nombre: 'Nombre Corregido', estatus: 'activo', motivo: 'Error de captura' })).estado, 200, 'Editar alumno')
+  const cambio = await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: (await docA.get('/sesion')).datos.id, motivo: 'El titular salió de licencia' })
+  igual(cambio.estado, 200, 'Cambiar el docente')
+  const b = (await coord.get('/bitacora?accion=cambiar_docente')).datos.filas
+  afirmar(b.some((f) => f.motivo === 'El titular salió de licencia' && f.despues?.docente === 'Dra. Ana Torres'), 'El cambio de docente no quedó en la bitácora')
 })
 
 let fallas = 0
