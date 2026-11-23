@@ -86,7 +86,7 @@ function rol_activo_o_422(string $clave, bool $permitir_alumno = false): array
 
 function correo_valido(array $d): string
 {
-    $correo = mb_strtolower(texto($d, 'correo', 160, 'El correo'));
+    $correo = correo_limpio($d);
     if (filter_var($correo, FILTER_VALIDATE_EMAIL) === false) {
         error_http(422, 'El correo no tiene un formato válido.', ['correo' => 'Escribe un correo válido.']);
     }

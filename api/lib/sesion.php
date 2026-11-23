@@ -36,7 +36,7 @@ function ruta_sesion(): never
 function ruta_login(): never
 {
     $d = cuerpo_json();
-    $correo = mb_strtolower(texto($d, 'correo', 160, 'El correo'));
+    $correo = correo_limpio($d);
     $clave = is_string($d['clave'] ?? null) ? $d['clave'] : '';
     if ($clave === '' || strlen($clave) > 200) {
         error_http(422, 'La contraseña es obligatoria.', ['clave' => 'La contraseña es obligatoria.']);
