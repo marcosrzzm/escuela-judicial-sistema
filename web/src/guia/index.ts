@@ -7,8 +7,8 @@ const GUIAS: Record<string, Guia> = {
       'Lo que ordena el trabajo del periodo: periodos, materias, grupos y quién da cada materia.',
     pasos: [
       'Elige la pestaña: Periodos, Materias, Grupos o Asignaciones.',
-      'Pulsa el botón "nuevo" de la pestaña y llena el formulario.',
-      'En Asignaciones, elige grupo, materia y docente. Solo salen docentes con cuenta activa.',
+      'Pulsa el botón "nuevo" de la pestaña y llena el formulario. Los grupos llevan una fecha de cierre prevista, que sale en el calendario.',
+      'En Asignaciones, elige grupo, materia y docente, y si quieres la fecha límite de entrega. Solo salen docentes con cuenta activa.',
       'Para cambiar al docente de una asignación, pulsa "Cambiar docente" y escribe el motivo.',
     ],
     despues:
@@ -16,9 +16,9 @@ const GUIAS: Record<string, Guia> = {
     tropiezos: [
       'Una materia solo puede tener un docente por grupo.',
       'Cerrar un periodo no borra nada: solo deja de aceptar capturas.',
-      'Los datos de un alumno se corrigen en Historial del alumno, con motivo.',
+      'Los datos de un alumno se corrigen en su historial, con motivo.',
     ],
-    siguiente: { etiqueta: 'Grupos y listas', ruta: '/grupos' },
+    siguiente: { etiqueta: 'Grupos', ruta: '/grupos' },
   },
   '/usuarios': {
     titulo: 'Cómo se usa Usuarios y roles',
@@ -55,53 +55,165 @@ const GUIAS: Record<string, Guia> = {
     tropiezos: ['Mientras la contraseña sea temporal, el sistema no deja abrir otra pantalla.'],
   },
   '/': {
-    titulo: 'Cómo se usa Inicio',
+    titulo: 'Cómo se usa el Tablero',
     queEs:
-      'Lo que espera tu atención: entregas por revisar, decisiones en Dirección, grupos listos para cierre, lotes con discrepancias y solicitudes de contraseña.',
+      'Tu página de entrada. Muestra una tarjeta por cada grupo o materia que te toca, lo que tienes por hacer y lo último que pasó.',
     pasos: [
-      'Mira los contadores.',
-      'Toca el que tenga un número mayor a cero: te lleva directo a su pantalla.',
+      'Elige el periodo arriba si quieres ver otro.',
+      'Toca una tarjeta para entrar al grupo o a la materia.',
+      'Mira la columna Por hacer: cada línea te lleva a donde se resuelve.',
+      'Cambia a Agenda para ver tus fechas por día.',
     ],
     despues:
-      'Desde Inicio no se captura nada; cada contador abre la pantalla donde sí se resuelve.',
-    tropiezos: ['Los contadores no se actualizan solos: recarga si trabajaste en otra pestaña.'],
-    siguiente: { etiqueta: 'Revisión de calificaciones', ruta: '/revision' },
+      'Cuando algo cambia, el aviso llega a la campana de la barra izquierda y Por hacer se actualiza.',
+    tropiezos: [
+      'Solo ves lo que te corresponde por tu rol.',
+      'Si Por hacer está vacío, no tienes nada pendiente.',
+    ],
+    siguiente: { etiqueta: 'Calendario', ruta: '/calendario' },
   },
   '/grupos': {
-    titulo: 'Cómo se usa Grupos y listas',
+    titulo: 'Cómo se usan los Grupos',
     queEs:
-      'La lista vigente de cada grupo. Es la única lista: docentes y auxiliares ven esta misma, sin recapturar nombres.',
+      'Cada grupo tiene su propia página con lista, materias, calificaciones, derecho a evaluación y cierre.',
     pasos: [
-      'Elige periodo y grupo.',
-      'Para sumar a un alumno, pulsa "Agregar alumno" y elige uno existente o captura uno nuevo.',
+      'Elige el periodo.',
+      'Toca el grupo para abrirlo.',
+      'Dentro, usa el menú de la izquierda para pasar de una sección a otra.',
+    ],
+    despues: 'Docentes y auxiliares ven en su sección la misma lista que tú, sin recapturar nada.',
+    tropiezos: [
+      'La lista de un periodo cerrado solo se consulta.',
+      'Si no ves un grupo, la Coordinación todavía no te lo asignó.',
+    ],
+    siguiente: { etiqueta: 'Calendario', ruta: '/calendario' },
+  },
+  '/grupos/inicio': {
+    titulo: 'Cómo se lee el Inicio del grupo',
+    queEs:
+      'El resumen del grupo: cuántos alumnos hay, cómo van las entregas, qué decisiones esperan a Dirección y cómo va el cierre.',
+    pasos: [
+      'Usa los botones de Lo esencial para ir a cada sección.',
+      'A la derecha están los pendientes, las próximas fechas y lo último que pasó.',
+    ],
+    despues:
+      'Los números se actualizan solos cuando alguien acepta una entrega o cambia una decisión.',
+    tropiezos: [
+      'Una materia sin entrega cuenta como Sin entrega hasta que el docente abre su captura.',
+    ],
+  },
+  '/grupos/personas': {
+    titulo: 'Cómo se usa Personas',
+    queEs:
+      'La lista vigente del grupo, sus docentes y sus auxiliares. Es la única lista: nadie la vuelve a capturar.',
+    pasos: [
+      'Pulsa "Agregar alumno" y elige uno que ya existe o captura uno nuevo.',
       'Para quitarlo, pulsa "Dar de baja" en su fila y escribe la observación.',
       'Para cargar muchos de golpe, pulsa "Importar lista" y elige un archivo CSV con matrícula y nombre.',
+      'Para que un alumno consulte su boleta, pulsa "Invitar al alumno" y escribe su correo.',
       'Pulsa "Imprimir lista" si la necesitas en papel.',
     ],
     despues:
-      'Cada alta o baja queda en la bitácora y se refleja de inmediato en las pantallas de docentes y auxiliares.',
+      'Cada alta o baja queda en la bitácora y aparece enseguida en la pantalla de docentes y auxiliares.',
     tropiezos: [
       'Un alumno no puede estar dos veces activo en el mismo grupo.',
-      'La lista de un periodo cerrado solo se consulta.',
-      'Al importar, las filas repetidas o con matrícula vacía se rechazan y el resumen dice por qué; las demás sí entran.',
+      'Al importar, las filas repetidas o con matrícula vacía se rechazan y el resumen dice por qué.',
+      'Solo Coordinación invita alumnos.',
     ],
-    siguiente: { etiqueta: 'Derecho a evaluación', ruta: '/derecho' },
+    siguiente: { etiqueta: 'Materias del grupo', ruta: '/grupos' },
   },
-  '/derecho': {
-    titulo: 'Cómo se usa Derecho a evaluación',
+  '/grupos/materias': {
+    titulo: 'Cómo se usan las Materias del grupo',
     queEs:
-      'Registra, por alumno y materia, si el alumno tiene derecho a ser evaluado. La decisión la toma una persona; el sistema la guarda con responsable, fecha y motivo.',
+      'Cada materia con su docente, su fecha límite de entrega y el estado de su entrega de calificaciones.',
     pasos: [
-      'Elige la asignación (grupo y materia).',
-      'Pulsa "Registrar decisión" en la fila del alumno.',
-      'Elige el resultado y escribe el motivo; si hay un justificante, anota dónde está.',
+      'Escribe la fecha límite de cada materia y pulsa Guardar.',
+      'Abajo puedes poner la fecha de cierre prevista del grupo.',
     ],
     despues:
-      'Un alumno "sin derecho" aparece bloqueado en la captura del docente. Los casos "requiere autorización" llegan a Dirección.',
-    tropiezos: [
-      'Cada decisión nueva sustituye a la anterior como vigente, pero la anterior se conserva en el historial.',
+      'Las fechas salen en el calendario y el docente recibe un aviso cuando faltan tres días.',
+    tropiezos: ['Si el periodo o el grupo están cerrados, las fechas solo se consultan.'],
+  },
+  '/grupos/calificaciones': {
+    titulo: 'Cómo se lee la sábana de calificaciones',
+    queEs:
+      'Una fila por alumno y una columna por materia, con la calificación de la entrega aceptada vigente y los pendientes abiertos.',
+    pasos: [
+      'Busca al alumno en la fila.',
+      'Pulsa "Descargar CSV" si quieres la tabla en una hoja de cálculo.',
     ],
+    despues: 'Cuando se acepta una entrega, sus calificaciones aparecen aquí.',
+    tropiezos: ['Una materia con "Sin entrega" todavía no tiene una entrega aceptada.'],
     siguiente: { etiqueta: 'Revisión de calificaciones', ruta: '/revision' },
+  },
+  '/grupos/derecho': {
+    titulo: 'Cómo se usa Derecho a evaluación',
+    queEs:
+      'Aquí se registra, por alumno y materia, si el alumno tiene derecho a ser evaluado. La decisión la toma una persona; el sistema la guarda con responsable, fecha y motivo.',
+    pasos: [
+      'Elige la materia.',
+      'Pulsa "Registrar decisión" en la fila del alumno.',
+      'Elige el resultado y escribe el motivo. Si hay un justificante, anota dónde está.',
+    ],
+    despues:
+      'Un alumno sin derecho aparece bloqueado en la captura del docente. Los casos que requieren autorización llegan a Dirección.',
+    tropiezos: [
+      'La decisión nueva sustituye a la anterior como vigente, pero la anterior se conserva.',
+      'Dirección solo consulta aquí; resuelve en Autorizaciones.',
+    ],
+  },
+  '/grupos/cierre': {
+    titulo: 'Cómo se usa el Cierre y lote',
+    queEs: 'Del grupo con todas sus entregas aceptadas al lote que recibe Carga externa.',
+    pasos: [
+      'Pulsa "Preparar cierre" y marca si requiere a Dirección.',
+      'Aprueba el cierre o envíalo a Dirección.',
+      'Pulsa "Generar boletas y lote" y descarga el CSV.',
+    ],
+    despues:
+      'Carga externa recibe el lote, lo carga en la plataforma oficial (fuera del sistema) y registra el resultado. Tú ves el traspaso aquí.',
+    tropiezos: [
+      'Sin todas las entregas aceptadas solo puedes preparar el cierre con una excepción y su motivo.',
+      'Un cierre aprobado no se edita: se prepara una versión nueva con motivo.',
+      'Las boletas salen pendientes de firma institucional. El sistema no firma.',
+    ],
+    siguiente: { etiqueta: 'Métricas', ruta: '/metricas' },
+  },
+  '/calendario': {
+    titulo: 'Cómo se usa el Calendario',
+    queEs:
+      'Las fechas del periodo, las fechas límite de entrega y los cierres de tus grupos. No hay nada que capturar aquí: todo sale de los datos.',
+    pasos: [
+      'Elige Mes o Lista arriba.',
+      'Filtra por grupo si solo quieres uno.',
+      'Toca un evento para ir a donde se resuelve.',
+    ],
+    despues: 'Si cambias una fecha en Materias o en Catálogos, el calendario la refleja enseguida.',
+    tropiezos: ['Solo ves los eventos de tus grupos o materias.'],
+  },
+  '/avisos': {
+    titulo: 'Cómo se usan los Avisos',
+    queEs:
+      'Lo que pasó y te toca atender: una entrega devuelta, algo por revisar, una autorización, un lote, una fecha que se acerca.',
+    pasos: [
+      'Toca un aviso para ir a su pantalla; se marca como leído.',
+      'Pulsa "Marcar todos como leídos" para limpiar la lista.',
+    ],
+    despues: 'Los avisos no se borran. Los de más de 90 días dejan de mostrarse.',
+    tropiezos: [
+      'Un aviso nunca trae calificaciones ni motivos: solo te dice qué pasó y a dónde ir.',
+    ],
+  },
+  '/cuenta': {
+    titulo: 'Cómo se usa tu Cuenta',
+    queEs: 'Tus datos, tu contraseña, el tema claro u oscuro y las sesiones que tienes abiertas.',
+    pasos: [
+      'Cambia tu contraseña con el botón de la sección Contraseña y pantalla.',
+      'Elige el tema que prefieras.',
+      'Cierra las sesiones que no reconozcas.',
+    ],
+    despues: 'El tema se recuerda en tu cuenta.',
+    tropiezos: ['El correo y el rol los cambia la Coordinación de Posgrados.'],
   },
   '/revision': {
     titulo: 'Cómo se usa Revisión de calificaciones',
@@ -118,43 +230,36 @@ const GUIAS: Record<string, Guia> = {
       'No se reabre si el grupo ya tiene un cierre aprobado.',
       'La captura excepcional cuenta como recaptura en Métricas.',
     ],
-    siguiente: { etiqueta: 'Cierre y lote', ruta: '/cierre' },
+    siguiente: { etiqueta: 'Grupos', ruta: '/grupos' },
   },
   '/historial': {
-    titulo: 'Cómo se usa Historial del alumno',
-    queEs: 'Todo lo aceptado de un alumno, por periodo, y sus pendientes, en una sola pantalla.',
+    titulo: 'Cómo se usa el Historial del alumno',
+    queEs: 'La boleta de un alumno por periodo, con sus pendientes abiertos y resueltos.',
     pasos: [
       'Busca por nombre o matrícula.',
       'Toca al alumno.',
-      'Revisa sus periodos y pendientes; resuelve o agrega un pendiente si hace falta.',
+      'Revisa sus periodos y pendientes. Resuelve o agrega un pendiente si hace falta.',
     ],
     despues: 'Solo cuenta la versión aceptada vigente de cada entrega.',
-    tropiezos: ['Si un alumno no muestra una materia, su entrega todavía no está aceptada.'],
+    tropiezos: ['Si falta una materia, su entrega todavía no está aceptada.'],
   },
-  '/cierre': {
-    titulo: 'Cómo se usa Cierre y lote',
-    queEs: 'Del grupo con todas sus entregas aceptadas al lote que recibe Carga externa.',
+  '/historial/alumno': {
+    titulo: 'Cómo se lee tu boleta',
+    queEs: 'Tus calificaciones por periodo y tus pendientes.',
     pasos: [
-      'Elige el grupo.',
-      'Pulsa "Preparar cierre"; marca si requiere a Dirección.',
-      'Aprueba el cierre (o envíalo a Dirección).',
-      'Pulsa "Generar boletas y lote" y descarga el CSV.',
+      'Mira cada periodo: materia, calificación y estatus.',
+      'Revisa abajo si tienes pendientes.',
     ],
     despues:
-      'Carga externa ve el lote, lo recibe, lo carga en la plataforma oficial (fuera del sistema) y registra el resultado; tú ves el traspaso aquí.',
-    tropiezos: [
-      'Sin todas las entregas aceptadas solo puedes preparar el cierre con una excepción y su motivo.',
-      'Un cierre aprobado no se edita: se prepara una versión nueva con motivo.',
-      'Las boletas salen "pendientes de firma institucional": el sistema no firma.',
-    ],
-    siguiente: { etiqueta: 'Métricas', ruta: '/metricas' },
+      'Cuando se acepta la entrega de una materia, te llega un aviso y la calificación aparece aquí.',
+    tropiezos: ['Las calificaciones que todavía no se aceptan no se muestran.'],
   },
   '/metricas': {
     titulo: 'Cómo se usan las Métricas',
     queEs:
       'Campos recapturados y minutos activos por caso, junto a los casos medidos fuera del sistema (línea base).',
     pasos: [
-      'Trabaja normalmente en Grupos y listas y en Cierre y lote: el tiempo se mide solo.',
+      'Trabaja normal en la lista y el cierre de un grupo: el tiempo se mide solo.',
       'Registra casos de línea base con "Registrar línea base".',
       'Compara los promedios arriba.',
     ],
@@ -175,12 +280,12 @@ const GUIAS: Record<string, Guia> = {
     tropiezos: ['Los accesos denegados también aparecen, como "acceso denegado".'],
   },
   '/asignaciones': {
-    titulo: 'Cómo se usan Mis asignaciones',
+    titulo: 'Cómo se usan Mis grupos y materias',
     queEs: 'Tus materias del periodo y el estado de tu entrega de calificaciones.',
     pasos: [
-      'Abre una asignación.',
-      'Captura las calificaciones (0 a 10, un decimal).',
-      'Guarda el borrador, o envía.',
+      'Abre una materia.',
+      'Captura las calificaciones, de 0 a 10 con un decimal.',
+      'Guarda el borrador o envía.',
     ],
     despues:
       'Al enviar, tu entrega queda con versión, fecha y responsable y ya no se edita. Coordinación la acepta o te la devuelve con un motivo.',
@@ -189,19 +294,31 @@ const GUIAS: Record<string, Guia> = {
       'Si te devuelven la entrega, trabajas sobre una versión nueva.',
     ],
   },
-  '/asignaciones/detalle': {
+  '/asignaciones/lista': {
+    titulo: 'Cómo se usa la Lista de tu materia',
+    queEs: 'Los alumnos del grupo. Es la misma lista que ve Coordinación.',
+    pasos: ['Revisa que estén todos.', 'Pulsa "Imprimir lista" si la necesitas en papel.'],
+    despues: 'Si hay altas o bajas, la lista se actualiza sola.',
+    tropiezos: ['Si falta alguien, avisa a Coordinación: tú no das altas.'],
+  },
+  '/asignaciones/calificaciones': {
     titulo: 'Cómo se captura una entrega',
-    queEs:
-      'La lista del grupo con un campo de calificación por alumno. La lista es la misma que ve Coordinación.',
+    queEs: 'Un campo de calificación por alumno.',
     pasos: [
       'Escribe cada calificación de 0 a 10 con un decimal.',
       'Pulsa "Guardar borrador" para seguir después.',
       'Pulsa "Enviar calificaciones" cuando estén todas.',
     ],
     despues:
-      'Coordinación recibe la entrega. Si la devuelve, aquí verás su motivo y una versión nueva.',
+      'Coordinación recibe la entrega. Si la devuelve, aquí ves su motivo y una versión nueva.',
     tropiezos: ['No se envía con calificaciones faltantes.', 'Una entrega enviada no se edita.'],
-    siguiente: { etiqueta: 'Mis asignaciones', ruta: '/asignaciones' },
+  },
+  '/asignaciones/derecho': {
+    titulo: 'Cómo se lee el Derecho a evaluación',
+    queEs: 'El resultado de cada alumno en tu materia, para que sepas a quién no calificar.',
+    pasos: ['Revisa el resultado de cada alumno.'],
+    despues: 'Un alumno sin derecho aparece bloqueado en la captura.',
+    tropiezos: ['El motivo de cada decisión es de Coordinación y Dirección: tú no lo ves.'],
   },
   '/autorizaciones': {
     titulo: 'Cómo se usan las Autorizaciones',
@@ -228,18 +345,15 @@ const GUIAS: Record<string, Guia> = {
       'La recepción y la carga se registran una sola vez.',
     ],
   },
-  '/listas': {
-    titulo: 'Cómo se usan Mis listas',
-    queEs: 'La lista vigente de tus grupos.',
-    pasos: ['Elige el periodo y el grupo.', 'Pulsa "Imprimir lista" si la necesitas en papel.'],
-    despues: 'La lista se actualiza sola cuando Coordinación da altas o bajas.',
-    tropiezos: ['Solo ves los grupos que te asignaron.'],
-  },
 }
 
 /** Guía de una ruta; `null` si la pantalla no tiene guía propia. */
-export function guiaDeRuta(pathname: string): Guia | null {
-  if (/^\/asignaciones\/\d+$/.test(pathname)) return GUIAS['/asignaciones/detalle']
+export function guiaDeRuta(pathname: string, base?: string): Guia | null {
+  const grupo = /^\/grupos\/\d+(?:\/([a-z]+))?$/.exec(pathname)
+  if (grupo) return GUIAS[`/grupos/${grupo[1] ?? 'inicio'}`] ?? GUIAS['/grupos'] ?? null
+  const materia = /^\/asignaciones\/\d+(?:\/([a-z]+))?$/.exec(pathname)
+  if (materia) return GUIAS[`/asignaciones/${materia[1] ?? 'calificaciones'}`] ?? null
+  if (pathname === '/historial' && base === 'alumno') return GUIAS['/historial/alumno'] ?? null
   return GUIAS[pathname] ?? null
 }
 

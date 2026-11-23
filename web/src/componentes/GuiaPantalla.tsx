@@ -6,7 +6,7 @@
  * un botón que abre un panel vacío es peor que no tenerlo.
  */
 import { CircleHelp, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -18,16 +18,28 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { guiaDeRuta } from '@/guia'
+import { useSesion } from '@/lib/sesion'
 
 export function GuiaPantalla() {
   const ubicacion = useLocation()
-  const guia = guiaDeRuta(ubicacion.pathname)
+  const { sesion } = useSesion()
+  const guia = guiaDeRuta(ubicacion.pathname, sesion?.base)
   const [abierta, setAbierta] = useState(false)
+  const hay = guia !== null
+
+  // "Ayuda" de la barra lateral abre la guía de la pantalla actual.
+  useEffect(() => {
+    if (!hay) return
+    const abrir = () => setAbierta(true)
+    window.addEventListener('abrir-guia', abrir)
+    return () => window.removeEventListener('abrir-guia', abrir)
+  }, [hay])
 
   if (!guia) return null
 
   return (
     <>
+      <span data-guia-disponible hidden />
       <Button
         type="button"
         variant="outline"
