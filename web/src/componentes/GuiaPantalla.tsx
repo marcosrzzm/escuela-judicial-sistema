@@ -43,7 +43,7 @@ export function GuiaPantalla() {
         <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{guia.titulo}</SheetTitle>
-            <SheetDescription>Guía rápida de la pantalla en la que estás.</SheetDescription>
+            <SheetDescription>Guía de esta pantalla.</SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-5 px-4 pb-6 text-sm leading-relaxed text-ink-2">
             <section>

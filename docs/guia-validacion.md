@@ -23,6 +23,7 @@ Prototipo con datos ficticios para la validación del 24 al 26 de noviembre de 2
 6. Carga externa: registrar recepción y carga, con una discrepancia (debe exigir el texto).
 7. Dirección: revisar la bitácora; cada devolución, reapertura y acceso denegado aparece con responsable, fecha, antes y después.
 8. Coordinación: pantalla de métricas (campos recapturados y minutos activos contra la línea base).
+9. Coordinación: crear una cuenta con invitación por correo. En la demostración el correo solo sale a direcciones autorizadas; a las demás la pantalla muestra el enlace para abrirlo a mano. En la pantalla de entrada, "¿Olvidaste tu contraseña?" crea una solicitud que Coordinación autoriza en Usuarios y roles.
 
 ## Qué revisar y opinar
 

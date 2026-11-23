@@ -69,7 +69,7 @@ export function Autorizaciones() {
   return (
     <Pagina
       titulo="Autorizaciones"
-      descripcion="Decisiones de derecho a evaluación y cierres que Coordinación marcó como que requieren tu resolución. Cada resolución lleva tu motivo."
+      descripcion="Decisiones de derecho a evaluación y cierres que Coordinación te mandó para resolver. Cada resolución lleva tu motivo."
     >
       {a.error ? <ErrorDatos error={a.error} reintentar={a.reintentar} /> : null}
       {a.cargando ? <Cargando /> : null}

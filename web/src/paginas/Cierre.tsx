@@ -271,7 +271,7 @@ export function CierreLote() {
   return (
     <Pagina
       titulo="Cierre y lote"
-      descripcion="Del grupo con todas sus entregas aceptadas al lote que recibe Carga externa: cierre, aprobación, boletas y traspaso."
+      descripcion="Del grupo con todas sus entregas aceptadas al lote que recibe Carga externa."
     >
       <SelectorGrupo seleccion={sel} />
       {sel.error ? <ErrorDatos error={sel.error} reintentar={sel.reintentar} /> : null}

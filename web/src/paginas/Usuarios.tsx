@@ -196,7 +196,7 @@ function DialogoUsuario({
           <DialogDescription>
             {usuario
               ? 'Cambiar el rol o inactivar la cuenta cierra sus sesiones abiertas.'
-              : 'Puedes invitar a la persona por correo o darle una contraseña temporal.'}
+              : 'Invita a la persona por correo o dale una contraseña temporal.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -717,7 +717,7 @@ function DialogoRol({
           <DialogDescription>
             {soloLectura
               ? 'Los roles del sistema no se editan: su definición vive en el código.'
-              : 'Solo se ofrecen los permisos que tiene el rol base. El alcance (sus asignaciones o sus grupos) lo da el rol base.'}
+              : 'El rol solo puede tener permisos de su rol base, y de ese rol base sale también su alcance (sus asignaciones o sus grupos).'}
           </DialogDescription>
         </DialogHeader>
         <form

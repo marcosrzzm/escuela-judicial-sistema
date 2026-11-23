@@ -22,14 +22,16 @@ const GUIAS: Record<string, Guia> = {
   },
   '/usuarios': {
     titulo: 'Cómo se usa Usuarios y roles',
-    queEs: 'Quién puede entrar al sistema y qué puede hacer cada cuenta.',
+    queEs: 'Quién entra al sistema y qué puede hacer cada cuenta.',
     pasos: [
       'En la pestaña Usuarios, pulsa "Cuenta nueva" y escribe nombre, correo y rol.',
-      'Anota la contraseña temporal que aparece: se muestra una sola vez.',
+      'Deja marcada la invitación por correo: la persona crea su propia contraseña con el enlace. Si prefieres darle una temporal, desmarca la casilla y anótala, porque se muestra una sola vez.',
       'Para dar de baja a alguien, pulsa "Editar" y cambia el estado a Inactivo.',
-      'Si alguien olvidó su contraseña, pulsa "Contraseña" para generar otra temporal.',
+      'Si alguien pidió restablecer su contraseña, su solicitud sale arriba de la lista. Pulsa "Autorizar y enviar enlace" o "Rechazar" con un motivo.',
+      'Para mandar un enlace sin que lo hayan pedido, pulsa "Enviar enlace" en su fila. Si aún no creó su contraseña, el botón dice "Reenviar invitación".',
+      'Si el correo no llega, "Contraseña" genera una temporal.',
       'Para ver lo que ve otra persona, pulsa "Ver como". Es solo lectura; sales con "Salir de la vista".',
-      'En la pestaña Roles puedes crear un rol propio: eliges un rol base y marcas los permisos.',
+      'En la pestaña Roles, crea un rol propio: elige un rol base y marca los permisos.',
     ],
     despues:
       'Cambiar el rol, inactivar o restablecer la contraseña cierra las sesiones abiertas de esa cuenta.',
@@ -37,12 +39,13 @@ const GUIAS: Record<string, Guia> = {
       'La última cuenta activa de Coordinación no se puede inactivar ni cambiar de rol.',
       'Un rol propio nunca puede administrar usuarios ni roles.',
       'Un rol con cuentas activas no se puede inactivar: primero cámbiales el rol.',
+      'Cada enlace sirve una vez. La invitación dura 72 horas y el restablecimiento, 24.',
     ],
     siguiente: { etiqueta: 'Catálogos', ruta: '/catalogos' },
   },
   '/mi-clave': {
     titulo: 'Cómo se usa Mi contraseña',
-    queEs: 'Aquí cambias la contraseña de tu cuenta.',
+    queEs: 'Cambia la contraseña de tu cuenta.',
     pasos: [
       'Escribe tu contraseña actual (o la temporal que te dieron).',
       'Escribe la nueva, de al menos 10 caracteres y distinta de tu correo.',
@@ -54,9 +57,9 @@ const GUIAS: Record<string, Guia> = {
   '/': {
     titulo: 'Cómo se usa Inicio',
     queEs:
-      'Lo que espera tu atención: entregas por revisar, decisiones en Dirección, grupos listos para cierre y lotes con discrepancias.',
+      'Lo que espera tu atención: entregas por revisar, decisiones en Dirección, grupos listos para cierre, lotes con discrepancias y solicitudes de contraseña.',
     pasos: [
-      'Mira los cuatro contadores.',
+      'Mira los contadores.',
       'Toca el que tenga un número mayor a cero: te lleva directo a su pantalla.',
     ],
     despues:
@@ -76,7 +79,7 @@ const GUIAS: Record<string, Guia> = {
       'Pulsa "Imprimir lista" si la necesitas en papel.',
     ],
     despues:
-      'Cada alta o baja queda en la bitácora y se refleja al instante en las pantallas de docentes y auxiliares.',
+      'Cada alta o baja queda en la bitácora y se refleja de inmediato en las pantallas de docentes y auxiliares.',
     tropiezos: [
       'Un alumno no puede estar dos veces activo en el mismo grupo.',
       'La lista de un periodo cerrado solo se consulta.',
@@ -87,7 +90,7 @@ const GUIAS: Record<string, Guia> = {
   '/derecho': {
     titulo: 'Cómo se usa Derecho a evaluación',
     queEs:
-      'Aquí registras, por alumno y materia, si tiene derecho a ser evaluado. La decisión la toma una persona; el sistema la guarda con responsable, fecha y motivo.',
+      'Registra, por alumno y materia, si el alumno tiene derecho a ser evaluado. La decisión la toma una persona; el sistema la guarda con responsable, fecha y motivo.',
     pasos: [
       'Elige la asignación (grupo y materia).',
       'Pulsa "Registrar decisión" en la fila del alumno.',

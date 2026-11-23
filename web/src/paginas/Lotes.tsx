@@ -140,7 +140,7 @@ export function Lotes() {
   return (
     <Pagina
       titulo="Lotes recibidos"
-      descripcion="Lotes de cierres aprobados. Confirma la recepción, carga en la plataforma oficial (fuera de este sistema) y registra el resultado."
+      descripcion="Lotes de cierres aprobados. Registra cuándo los recibes y cómo salió la carga en la plataforma oficial, que haces fuera de este sistema."
     >
       {l.error ? <ErrorDatos error={l.error} reintentar={l.reintentar} /> : null}
       <TablaDatos
