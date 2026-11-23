@@ -9,7 +9,7 @@ import { Pagina } from '@/componentes/Pagina'
 import { colorDe } from '@/componentes/Plataforma'
 import type { Grupo, Periodo } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
-import { soloFecha } from '@/lib/formulario'
+import { plural, soloFecha } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 import { MisAsignaciones } from '@/paginas/MisAsignaciones'
 
@@ -100,7 +100,8 @@ export function ListaGrupos() {
                 </span>
                 <span className="text-sm text-ink-3">{g.programa}</span>
                 <span className="text-xs text-ink-3">
-                  {g.periodo} · {g.turno} · <span className="num">{g.alumnos_activos}</span> alumnos
+                  {g.periodo} · {g.turno} ·{' '}
+                  <span className="num">{plural(g.alumnos_activos, 'alumno', 'alumnos')}</span>
                   {g.fecha_cierre_prevista ? ` · cierre ${soloFecha(g.fecha_cierre_prevista)}` : ''}
                 </span>
               </span>

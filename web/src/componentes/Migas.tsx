@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { useMigasPropias } from '@/lib/migas'
+import { useSesion } from '@/lib/sesion'
 import { migasDeRuta, type Miga } from '@/lib/navegacion'
 import { cn } from '@/lib/utils'
 
@@ -47,13 +48,19 @@ export function Migas() {
   const ubicacion = useLocation()
   const propias = useMigasPropias()
   const { completas, propias: deRuta } = migasDeRuta(ubicacion.pathname)
-  const migas = propias ?? completas
+  const { sesion } = useSesion()
+  // Para el alumno la pantalla se llama Mi boleta.
+  const nombrar = (m: Miga[]) =>
+    sesion?.base === 'alumno'
+      ? m.map((x) => (x.ruta === '/historial' ? { ...x, etiqueta: 'Mi boleta' } : x))
+      : m
+  const migas = nombrar(propias ?? completas)
 
   return (
     <nav aria-label="Ubicación" className="min-w-0">
       <ListaMigas migas={migas} className="hidden sm:flex" />
       <ListaMigas
-        migas={propias ? propias.slice(-2) : deRuta.length > 0 ? deRuta : completas}
+        migas={nombrar(propias ? propias.slice(-2) : deRuta.length > 0 ? deRuta : completas)}
         className="flex sm:hidden"
       />
     </nav>

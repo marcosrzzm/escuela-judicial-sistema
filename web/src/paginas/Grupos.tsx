@@ -33,7 +33,7 @@ import {
   type ResumenImportacion,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
-import { resolverZod, soloFecha } from '@/lib/formulario'
+import { plural, resolverZod, soloFecha } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 import { useTiempoActivo } from '@/lib/useTiempoActivo'
 
@@ -297,6 +297,7 @@ function DialogoImportar({
 export function Personas() {
   const { sesion } = useSesion()
   const sel = useSeleccionGrupo()
+  const puedeAltas = sesion?.base === 'coordinacion'
   const grupoId = sel.grupo?.id ?? null
   useTiempoActivo('lista', grupoId)
   const lista = useDatos<ListaGrupo>(grupoId ? `/grupos/${grupoId}/lista` : null)
@@ -346,7 +347,11 @@ export function Personas() {
   return (
     <Pagina
       titulo="Personas"
-      descripcion="La lista vigente del grupo, sus docentes y sus auxiliares. Docentes y auxiliares ven esta misma lista, sin recapturar nada."
+      descripcion={
+        puedeAltas
+          ? 'La lista vigente del grupo, sus docentes y sus auxiliares. Docentes y auxiliares ven esta misma lista, sin recapturar nada.'
+          : 'La lista vigente del grupo, para consultar e imprimir.'
+      }
       acciones={
         <>
           {editable ? (
@@ -389,7 +394,9 @@ export function Personas() {
             </h2>
             <p className="text-sm text-ink-3">
               {datos.grupo.programa} · {datos.grupo.turno} ·{' '}
-              <span className="num">{vigentes.length}</span> alumnos vigentes
+              <span className="num">
+                {plural(vigentes.length, 'alumno vigente', 'alumnos vigentes')}
+              </span>
             </p>
           </div>
           {!editable ? (
@@ -447,13 +454,15 @@ export function Personas() {
             vacio={{
               variante: 'vacio',
               titulo: 'Este grupo todavía no tiene alumnos',
-              descripcion:
-                'Agrega a los alumnos del grupo: la misma lista les llegará a los docentes y auxiliares.',
-              accion: editable ? (
-                <Button type="button" onClick={() => setAltaAbierta(true)}>
-                  Agregar el primer alumno
-                </Button>
-              ) : undefined,
+              descripcion: puedeAltas
+                ? 'Agrega a los alumnos del grupo: la misma lista les llegará a los docentes y auxiliares.'
+                : 'Coordinación da de alta a los alumnos; en cuanto lo haga, aparecen aquí sin que captures nada.',
+              accion:
+                editable && puedeAltas ? (
+                  <Button type="button" onClick={() => setAltaAbierta(true)}>
+                    Agregar el primer alumno
+                  </Button>
+                ) : undefined,
             }}
           />
           <section

@@ -28,6 +28,9 @@ export function soloFecha(iso: string | null): string {
   })
 }
 
+/** "1 alumno", "5 alumnos". */
+export const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
+
 export function minutos(segundos: number): string {
   return (segundos / 60).toLocaleString('es-MX', { maximumFractionDigits: 1 })
 }

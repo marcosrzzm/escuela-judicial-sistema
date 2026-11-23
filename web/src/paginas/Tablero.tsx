@@ -16,7 +16,7 @@ import type {
   TarjetaTablero,
 } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
-import { soloFecha } from '@/lib/formulario'
+import { plural, soloFecha } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 import { cn } from '@/lib/utils'
 import { useSearchParams } from 'react-router-dom'
@@ -58,7 +58,7 @@ function Tarjeta({ t }: { t: TarjetaTablero }) {
             {t.tipo === 'grupo' &&
             t.entregas_esperadas === undefined &&
             t.alumnos_activos !== undefined ? (
-              <span className="num">{t.alumnos_activos} alumnos</span>
+              <span className="num">{plural(t.alumnos_activos, 'alumno', 'alumnos')}</span>
             ) : null}
             {t.tipo === 'asignacion' ? (
               <>

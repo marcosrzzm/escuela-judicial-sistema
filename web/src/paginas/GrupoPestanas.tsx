@@ -18,7 +18,7 @@ import {
   type Sabana,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
-import { soloFecha } from '@/lib/formulario'
+import { plural, soloFecha } from '@/lib/formulario'
 import { useSesion } from '@/lib/sesion'
 import { cn } from '@/lib/utils'
 
@@ -49,8 +49,9 @@ export function GrupoInicio({ grupo, resumen }: { grupo: Grupo; resumen: Resumen
           {grupo.clave}
         </h2>
         <p className="text-sm text-nav-txt">
-          Turno {grupo.turno.toLowerCase()}. {resumen.alumnos_activos} alumnos vigentes y {total}{' '}
-          materias.
+          Turno {grupo.turno.toLowerCase()}.{' '}
+          {plural(resumen.alumnos_activos, 'alumno vigente', 'alumnos vigentes')} y{' '}
+          {plural(total, 'materia', 'materias')}.
         </p>
       </section>
 

@@ -265,16 +265,16 @@ function DetalleAlumno({ id }: { id: number }) {
                 </caption>
                 <thead className="bg-paper-2 text-left text-[10.5px] font-semibold tracking-[0.06em] text-ink-3 uppercase">
                   <tr>
-                    <th scope="col" className="px-3 py-2">
+                    <th scope="col" className="px-2 py-2 sm:px-3">
                       Materia
                     </th>
-                    <th scope="col" className="px-3 py-2 text-right">
+                    <th scope="col" className="px-2 py-2 text-right sm:px-3">
                       Calificación
                     </th>
-                    <th scope="col" className="px-3 py-2">
+                    <th scope="col" className="px-2 py-2 sm:px-3">
                       Estatus
                     </th>
-                    <th scope="col" className="px-3 py-2 text-right">
+                    <th scope="col" className="hidden px-3 py-2 text-right sm:table-cell">
                       Versión
                     </th>
                   </tr>
@@ -282,14 +282,16 @@ function DetalleAlumno({ id }: { id: number }) {
                 <tbody>
                   {p.materias.map((m) => (
                     <tr key={m.materia} className="border-t border-line">
-                      <td className="px-3 py-2">{m.materia}</td>
-                      <td className="px-3 py-2 text-right num">
+                      <td className="px-2 py-2 sm:px-3">{m.materia}</td>
+                      <td className="px-2 py-2 text-right num sm:px-3">
                         {m.valor === null ? 'Sin valor' : m.valor.toFixed(1)}
                       </td>
-                      <td className="px-3 py-2">
-                        <InsigniaEstado estado={m.estatus} />
+                      <td className="px-2 py-2 sm:px-3">
+                        <InsigniaEstado estado={m.estatus} className="px-1.5 sm:px-2.5" />
                       </td>
-                      <td className="px-3 py-2 text-right text-ink-3 num">v{m.version}</td>
+                      <td className="hidden px-3 py-2 text-right text-ink-3 num sm:table-cell">
+                        v{m.version}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -310,8 +312,9 @@ function DetalleAlumno({ id }: { id: number }) {
         </div>
         {d.pendientes.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line-strong bg-paper-2 px-4 py-6 text-sm text-ink-3">
-            Sin pendientes. Se abren solos con una calificación menor a 8.0 o sin derecho a
-            evaluación, o los agregas a mano.
+            {sesion?.base === 'alumno'
+              ? 'No tienes materias pendientes.'
+              : 'Sin pendientes. Se abren solos con una calificación menor a 8.0 o sin derecho a evaluación, o los agregas a mano.'}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
