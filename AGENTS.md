@@ -34,7 +34,7 @@ Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nu
 - Firma digital o cualquier sustitución de la firma institucional. Los documentos salen "pendientes de firma".
 - Portal para alumnos. El alumno no tiene cuenta.
 - Migración del histórico de la Escuela.
-- Comunicaciones masivas (correos, avisos a alumnos).
+- Comunicaciones masivas (correos, avisos a alumnos). Los correos uno a uno de invitación y restablecimiento sí existen (especificación, 10.6).
 - Cualquier automatización que tome una decisión académica en lugar de una persona.
 - Tokens de agente, conectores o API pública.
 - Datos reales de alumnos o docentes. Todo es ficticio mientras no exista autorización escrita de la Escuela.

@@ -202,6 +202,8 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 | CA-18 | Docente A pide crear un usuario, crear un rol y ver como otro usuario por API | Coordinación revisa la bitácora | Las tres peticiones responden 403 y quedan como acceso denegado |
 | CA-19 | Coordinación desactiva una cuenta con sesión abierta e intenta desactivar a la última Coordinación activa | La cuenta desactivada hace una petición | La cuenta recibe 401 y ya no puede entrar; desactivar a la última Coordinación responde 409 |
 | CA-20 | Coordinación crea periodo, materia y grupo, asigna la materia al docente nuevo e importa la lista de alumnos desde un archivo CSV | El docente nuevo abre Mis asignaciones | Ve la asignación con la lista importada sin capturar nada; las filas repetidas en el mismo grupo se rechazan por RN-01 y el resumen de importación las muestra |
+| CA-21 | Coordinación invita por correo a una cuenta nueva | La persona abre el enlace y crea su contraseña; después usa el mismo enlace otra vez | Entra con su contraseña nueva sin haber visto una temporal; el segundo uso responde 410 y la invitación queda en bitácora sin el token |
+| CA-22 | Una persona pide restablecer su contraseña desde la pantalla de entrada | Coordinación autoriza la solicitud; antes de eso nadie recibió enlace | Sin autorización no existe enlace; al autorizar sale uno solo, sirve una vez y cierra sus sesiones; un correo inexistente recibe la misma respuesta y no crea solicitud visible |
 
 ## 8. Supuestos que hay que confirmar con la Escuela
 
@@ -286,3 +288,17 @@ Pantalla Catálogos, para Coordinación (y roles personalizados con base Coordin
 
 - La franja "Prototipo · datos ficticios" se controla con `DATOS_FICTICIOS` en `api/ajustes.php` y sigue encendida mientras no exista autorización escrita de la Escuela para usar datos reales (sección 8, punto 5).
 - Para arrancar una base sin la semilla: se aplican las migraciones sin `90_semilla.sql` y se crea la primera cuenta de Coordinación con `scripts/crear-coordinacion.php`, que imprime la contraseña temporal solo en la terminal de quien lo corre.
+
+### 10.6 Invitaciones y restablecimiento por correo
+
+Decisión del 23 de noviembre de 2026 (Marcos): Coordinación invita por correo y cada persona crea su propia contraseña; nadie restablece su contraseña sin autorización de Coordinación.
+
+- Invitar: al dar de alta una cuenta, Coordinación elige "Enviar invitación por correo" (opción por omisión). El sistema manda un correo con un enlace de un solo uso, vigente 72 horas. La persona abre el enlace, ve su correo de la Escuela ya escrito, crea su contraseña (mínimo 10 caracteres, distinta del correo) y entra. Coordinación puede reenviar la invitación; la anterior deja de servir.
+- La contraseña temporal mostrada en pantalla queda como respaldo cuando el correo no llega.
+- Olvidé mi contraseña: en la pantalla de entrada la persona escribe su correo. El sistema responde siempre lo mismo, exista o no la cuenta, y no manda nada todavía: crea una solicitud. Máximo 3 solicitudes por correo cada 24 horas.
+- Coordinación ve las solicitudes en Usuarios y roles y en Inicio. Al autorizar, el sistema manda un enlace de un solo uso, vigente 24 horas, y cierra las sesiones de esa cuenta. Al rechazar, la solicitud se cierra con motivo y no se manda nada.
+- Coordinación también puede mandar el enlace de restablecimiento por iniciativa propia desde la ficha de la cuenta.
+- Los enlaces guardan solo el hash del token. Usarlo, que venza o que se emita otro lo invalida.
+- Los correos salen por Resend con HTML y texto, un solo enlace, sin imágenes salvo el nombre del sistema en texto, y con respuesta dirigida al correo de quien invitó o autorizó. Si el envío falla, la acción queda registrada, la pantalla lo dice y ofrece la contraseña temporal. En local, sin llave de Resend, el correo se guarda en un archivo dentro de `seguridad/` en lugar de enviarse.
+- Todo va a la bitácora: invitación enviada, reenviada y usada; solicitud creada, autorizada o rechazada; restablecimiento usado. Nunca el token ni la contraseña.
+- No son comunicaciones masivas: cada correo va a una sola persona y lo dispara una acción de Coordinación. La exclusión de G2 sobre comunicaciones masivas sigue igual.
