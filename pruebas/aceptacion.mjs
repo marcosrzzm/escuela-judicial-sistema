@@ -1,4 +1,4 @@
-// Criterios de aceptación CA-01 a CA-22 (especificación, sección 7) contra la API local.
+// Criterios de aceptación CA-01 a CA-24 (especificación, sección 7) contra la API local.
 // Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
 // Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
 //   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
@@ -198,16 +198,21 @@ ca('CA-09', 'Carga externa registra recepción, carga y discrepancia; no puede t
   igual((await coord.get(`/grupos/${g1.id}/cierre`)).datos.cierres[0].estado, 'aprobado', 'El cierre cambió')
 })
 
-ca('CA-10', 'Devolver con motivo queda en la bitácora que ve Dirección, con antes y después', async () => {
+ca('CA-10', 'Devolver con motivo: Coordinación ve la bitácora completa y Dirección solo quién y cuándo', async () => {
   const todas = listaG2.map((a) => ({ alumno_id: a.alumno_id, valor: 8.0 }))
   igual((await docB.post(`/entregas/${ctx.entregaB}/enviar`, { calificaciones: todas })).estado, 200, 'Docente B envía')
   const motivo = 'Falta sustento en la calificación de un alumno'
   const d = await coord.put(`/entregas/${ctx.entregaB}/devolver`, { motivo })
   igual(d.estado, 200, 'Devolver')
-  const f = (await dir.get('/bitacora?entidad=entrega_calificaciones&accion=devolver')).datos.filas[0]
-  afirmar(f, 'Dirección no ve la acción')
+  const f = (await coord.get('/bitacora?entidad=entrega_calificaciones&accion=devolver')).datos.filas[0]
+  afirmar(f, 'Coordinación no ve la acción')
   igual([f.usuario, f.motivo, f.antes.estado, f.despues.estado], ['Lic. Marina Solís', motivo, 'enviada', 'devuelta'], 'Detalle de la bitácora')
   afirmar(Boolean(f.fecha), 'Falta la fecha')
+  const g = (await dir.get('/bitacora?entidad=entrega_calificaciones&accion=devolver')).datos.filas[0]
+  afirmar(g, 'Dirección no ve la acción')
+  igual([g.usuario, g.motivo, g.antes, g.despues], ['Lic. Marina Solís', null, null, null], 'Dirección no debe ver motivo ni valores')
+  afirmar(Boolean(g.fecha), 'Falta la fecha para Dirección')
+  igual((await dir.get('/bitacora?q=Falta%20sustento')).datos.filas.length, 0, 'Dirección no busca dentro de los motivos')
 })
 
 ca('CA-11', 'La captura excepcional suma campos recapturados y la línea base aparece junto', async () => {
@@ -343,16 +348,16 @@ ca('CA-17', 'Ver como Docente A: lee lo que él ve, escribir responde 403, los l
   igual((await coord.get('/sesion')).datos.solo_lectura, false, 'La vista sigue puesta')
   igual((await docA.get(`/asignaciones/${asigA.id}`)).datos, antes, 'La entrega del docente cambió')
   igual((await coord.get('/metricas')).datos.sistema.find((c) => c.grupo_id === g1.id && c.tipo === 'lista').segundos_activos, tiempoAntes, 'Los segundos activos cambiaron')
-  const b = (await dir.get('/bitacora?entidad=usuario')).datos.filas
+  const b = (await coord.get('/bitacora?entidad=usuario')).datos.filas
   afirmar(b.some((f) => f.accion === 'ver_como_inicio' && f.usuario === 'Lic. Marina Solís'), 'Falta el inicio de la vista')
   afirmar(b.some((f) => f.accion === 'ver_como_fin' && f.usuario === 'Lic. Marina Solís'), 'Falta el fin de la vista')
-  const negados = (await dir.get('/bitacora?accion=acceso_denegado&q=Marina')).datos.filas
+  const negados = (await coord.get('/bitacora?accion=acceso_denegado&q=Marina')).datos.filas
   afirmar(negados.some((f) => /vista de solo lectura/.test(f.motivo ?? '')), 'El intento de escritura no quedó a nombre de Coordinación')
   // Cerrar sesión dentro de la vista también cierra la vista en la bitácora.
   const otra = await entrar('coordinacion@prueba.local')
   igual((await otra.post(`/ver-como/${idDocA}`)).estado, 200, 'Segunda vista')
   igual((await otra.post('/logout')).estado, 200, 'Cerrar sesión en la vista')
-  const fines = (await dir.get('/bitacora?accion=ver_como_fin')).datos.filas
+  const fines = (await coord.get('/bitacora?accion=ver_como_fin')).datos.filas
   afirmar(fines.some((f) => f.motivo === 'cierre de sesión' && f.usuario === 'Lic. Marina Solís'), 'Falta el fin de la vista al cerrar sesión')
 })
 
@@ -440,6 +445,84 @@ ca('CA-20', 'Catálogos y CSV: periodo, materia y grupo nuevos, asignación al d
   igual((await coord.put(`/periodos/${per.datos.id}`, { estado: 'cerrado' })).estado, 200, 'Cerrar el periodo')
   igual((await coord.post('/asignaciones', { grupo_id: g2n.datos.id, materia_id: mat.datos.id, docente_id: ctx.docenteNuevo.id })).estado, 409, 'Asignar en un periodo cerrado')
   igual((await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: ctx.docenteNuevo.id, motivo: 'Prueba' })).estado, 409, 'Cambiar docente en un periodo cerrado')
+})
+
+ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su motivo ni su evidencia; Auxiliar, Carga externa y Dirección no ven la decisión', async () => {
+  const alumno = listaG1[0]
+  const motivo = 'Reporte médico confidencial del alumno'
+  const evidencia = 'Expediente interno 4471'
+  const r = await coord.post(`/asignaciones/${asigA.id}/decisiones`, { alumno_id: alumno.alumno_id, resultado: 'sin_derecho', motivo, referencia_evidencia: evidencia })
+  igual(r.estado, 200, 'Registrar sin derecho')
+  const vista = await docA.get(`/asignaciones/${asigA.id}`)
+  const fila = vista.datos.alumnos.find((a) => a.alumno_id === alumno.alumno_id)
+  igual([fila.decision.resultado, fila.bloqueado], ['sin_derecho', true], 'El docente sí ve el resultado')
+  const texto = JSON.stringify(vista.datos)
+  afirmar(!texto.includes(motivo) && !texto.includes(evidencia), 'La respuesta del docente trae el motivo o la evidencia')
+  afirmar(!('motivo' in fila.decision) && !('referencia_evidencia' in fila.decision) && !('motivo_direccion' in fila.decision), 'La decisión del docente trae campos sensibles')
+  igual(vista.datos.historial_decisiones, [], 'El docente no ve el historial de decisiones')
+  // Reabrir: el motivo de la reapertura es de Coordinación; el de una devolución sí llega al docente.
+  afirmar(!texto.includes('Corrección de la calificación de una alumna'), 'El docente ve el motivo de una reapertura')
+  igual(vista.datos.entrega?.motivo_captura ?? null, null, 'El docente ve el motivo de una captura excepcional')
+  const coordVista = JSON.stringify((await coord.get(`/asignaciones/${asigA.id}`)).datos)
+  afirmar(coordVista.includes(motivo) && coordVista.includes(evidencia), 'Coordinación dejó de ver el motivo y la evidencia')
+  // Docente B conserva el motivo con que le devolvieron su propia entrega (CA-10). Su contraseña sigue temporal desde CA-19.
+  const nueva = 'Clave de Docente B 2026'
+  const b = await entrar('docente.b@prueba.local', ctx.docBRestablecido)
+  igual((await b.put('/mi-clave', { actual: ctx.docBRestablecido, nueva, confirmacion: nueva })).estado, 200, 'Docente B cambia su contraseña temporal')
+  ctx.docBRestablecido = nueva
+  ctx.docBNuevo = b
+  const deB = JSON.stringify((await b.get(`/asignaciones/${asigB.id}`)).datos)
+  afirmar(deB.includes('Falta sustento en la calificación de un alumno'), 'Docente B no ve el motivo de la devolución de su entrega')
+  // Quien no es Coordinación ni el docente no ve la decisión.
+  for (const [quien, cliente] of [['Auxiliar', aux], ['Carga externa', carga], ['Dirección', dir]]) {
+    igual((await cliente.get(`/asignaciones/${asigA.id}`)).estado, 403, `${quien} pide la asignación`)
+    igual((await cliente.get(`/grupos/${g1.id}/lista`)).estado === 200 && quien !== 'Auxiliar', false, `${quien} pide la lista`)
+  }
+  // El Auxiliar ve de la lista solo nombre y matrícula.
+  const lista = (await aux.get(`/grupos/${g1.id}/lista`)).datos
+  afirmar(lista.alumnos.length > 0 && lista.alumnos.every((a) => JSON.stringify(Object.keys(a).sort()) === JSON.stringify(['identificador', 'nombre'])), 'El Auxiliar ve más que nombre y matrícula')
+  afirmar(!JSON.stringify(lista).includes(motivo), 'La lista del Auxiliar trae un motivo')
+  // Dirección ve el detalle completo solo de lo que se le envía a autorizar.
+  const caso = await coord.post(`/asignaciones/${asigA.id}/decisiones`, { alumno_id: listaG1[1].alumno_id, resultado: 'requiere_autorizacion', motivo: 'Caso para Dirección', referencia_evidencia: 'Oficio 12' })
+  igual(caso.estado, 200, 'Enviar un caso a Dirección')
+  const aut = (await dir.get('/autorizaciones')).datos.decisiones.find((d) => d.motivo === 'Caso para Dirección')
+  afirmar(aut && aut.referencia_evidencia === 'Oficio 12', 'Dirección no ve el detalle de lo que le envían')
+  afirmar(!JSON.stringify((await dir.get('/autorizaciones')).datos).includes(motivo), 'Dirección ve el motivo de un caso que no le enviaron')
+})
+
+ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente solo encuentra a sus alumnos; Dirección no ve historiales', async () => {
+  // Todas las rutas de rutas.php, menos las públicas, responden 401 sin sesión y con Cache-Control: no-store.
+  const publicas = new Set(['POST /login', 'GET /ajustes-publicos', 'GET /acceso/validar', 'POST /acceso/clave', 'POST /olvide-clave'])
+  const rutas = [...readFileSync(join(raiz, 'api/rutas.php'), 'utf8').matchAll(/\['(GET|POST|PUT)', '([^']+)'/g)].map((m) => [m[1], m[2].replace('{id}', '1')])
+  afirmar(rutas.length > 60, 'No se leyeron las rutas')
+  const anonimo = new Cliente('anonimo')
+  for (const [m, ruta] of rutas) {
+    if (publicas.has(`${m} ${ruta.replace(/\/\d+/g, '/{id}')}`) || publicas.has(`${m} ${ruta}`)) continue
+    const r = await anonimo.pedir(m, ruta, m === 'GET' ? undefined : {})
+    igual(r.estado, 401, `${m} ${ruta} sin sesión`)
+    afirmar(/no-store/.test(r.cabeceras.get('cache-control') ?? ''), `${m} ${ruta} sin Cache-Control: no-store`)
+    afirmar(JSON.stringify(r.datos).length < 120, `${m} ${ruta} sin sesión trae datos`)
+  }
+  // Un alumno nuevo solo del grupo de Docente B: Docente A no tiene por qué encontrarlo.
+  const ajeno = { nombre: 'Zacarías Ajeno Prueba', identificador: 'AJ-0001' }
+  igual((await coord.post(`/grupos/${g2.id}/inscripciones`, { ...ajeno, observacion: 'Prueba de alcance' })).estado, 200, 'Alta del alumno ajeno')
+  igual((await ctx.docBNuevo.get(`/alumnos?q=${encodeURIComponent(ajeno.nombre)}`)).datos.filas.length, 1, 'Docente B sí encuentra a su alumno')
+  const propio = listaG1[2]
+  igual((await docA.get(`/alumnos?q=${encodeURIComponent(ajeno.nombre)}`)).datos.filas, [], 'El buscador del docente encontró a un alumno de otro grupo')
+  const hallado = (await docA.get(`/alumnos?q=${encodeURIComponent(propio.nombre)}`)).datos.filas
+  igual(hallado.map((a) => a.identificador), [propio.identificador], 'El docente no encuentra a su alumno')
+  igual(Object.keys(hallado[0]).sort(), ['id', 'identificador', 'nombre'], 'Campos del buscador del docente')
+  igual((await docA.get(`/alumnos/${propio.alumno_id}/historial`)).estado, 403, 'El docente pide un historial')
+  igual((await dir.get(`/alumnos/${propio.alumno_id}/historial`)).estado, 403, 'Dirección pide un historial')
+  igual((await dir.get('/alumnos')).estado, 403, 'Dirección pide alumnos')
+  igual((await dir.get(`/grupos/${g1.id}/lista`)).estado, 403, 'Dirección pide una lista')
+  igual((await dir.get('/lotes')).estado, 403, 'Dirección pide lotes')
+  igual((await aux.get('/usuarios')).estado, 403, 'Auxiliar pide cuentas')
+  igual((await carga.get('/alumnos')).estado, 403, 'Carga externa pide alumnos')
+  const lotes = (await carga.get('/lotes')).datos.filas
+  afirmar(lotes.length > 0 && lotes.every((l) => !('motivo' in l)), 'Carga externa ve más que los campos del lote')
+  const ver = (await coord.get('/usuarios')).datos.filas
+  afirmar(ver.some((u) => u.correo), 'Coordinación dejó de ver los correos')
 })
 
 // CA-21 y CA-22 leen el enlace del archivo que la API deja en seguridad/correos-dev/ cuando no hay llave de Resend (solo local).

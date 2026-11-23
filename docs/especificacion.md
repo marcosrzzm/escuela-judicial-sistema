@@ -119,22 +119,24 @@ V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" q
 |---|---|---|---|---|---|
 | periodo | V C M | V | V | V | V |
 | grupo | V C M | V propios | V | V | V propios |
-| alumno | V C M | V de sus grupos | V | · | V de sus grupos |
-| inscripcion_grupo | V C M (alta y baja) | V de sus grupos | V | · | V de sus grupos |
+| alumno | V C M | V de sus grupos | · | · | V de sus grupos |
+| inscripcion_grupo | V C M (alta y baja) | V de sus grupos | · | · | V de sus grupos |
 | usuario | V C M (solo rol del sistema) | · | · | · | · |
 | rol* | V C M (solo rol del sistema) | · | · | · | · |
 | materia | V C M | V propias | V | V | · |
-| asignacion_docente | V C M | V propias | V | · | · |
+| asignacion_docente | V C M | V propias | · | · | · |
 | decision_evaluacion | V C | V propias | V M (solo las que requieren autorización) | · | · |
-| entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | V | · | · |
-| calificacion | V | V C M propias en borrador | V | · | · |
-| pendiente_academico | V C M | · | V | · | · |
+| entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | · | · | · |
+| calificacion | V | V C M propias en borrador | · | · | · |
+| pendiente_academico | V C M | · | · | · | · |
 | cierre | V C M | · | V M (solo en autorización) | V aprobados | · |
-| documento_academico | V C | · | V | · | · |
-| lote_entrega | V C | · | V | V | · |
-| registro_carga_externa | V | · | V | V C M | · |
+| documento_academico | V C | · | · | · | · |
+| lote_entrega | V C | · | · | V | · |
+| registro_carga_externa | V | · | · | V C M | · |
 | bitacora_cambio | V | · | V | · | · |
 | metrica_caso | V C | · | V | · | · |
+
+Dirección solo ve el detalle de las decisiones y cierres que se le envían a autorizar (sección 10.7): por eso no tiene acceso de lectura a alumnos, inscripciones, asignaciones, entregas, calificaciones, pendientes, documentos, lotes ni cargas, y en la bitácora ve quién y cuándo, sin motivos ni valores.
 
 Los roles personalizados tienen como máximo los permisos de su rol base en esta matriz, nunca la administración de usuarios ni de roles, ni la vista como otro usuario (sección 10.2).
 

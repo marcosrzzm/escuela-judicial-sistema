@@ -22,6 +22,16 @@ function decisiones_vigentes(int $asignacion_id): array
     return $mapa;
 }
 
+/**
+ * Los motivos de una entrega son datos sensibles (especificación, 10.7): Coordinación ve todos; el docente solo
+ * el de la devolución de su propia entrega, nunca el de una reapertura.
+ */
+function motivo_de_entrega(?string $motivo, string $estado): ?string
+{
+    $u = usuario_actual();
+    return ($u !== null && $u['base'] === 'coordinacion') || $estado === 'devuelta' ? $motivo : null;
+}
+
 function calificaciones_de(int $entrega_id): array
 {
     return array_map(static function (array $c): array {
@@ -43,6 +53,10 @@ function entrega_completa(int $id): ?array
         return null;
     }
     $e['captura_excepcional'] = (bool) $e['captura_excepcional'];
+    $e['motivo'] = motivo_de_entrega($e['motivo'], (string) $e['estado']);
+    if ((usuario_actual()['base'] ?? '') !== 'coordinacion') {
+        $e['motivo_captura'] = null;
+    }
     $e['calificaciones'] = calificaciones_de($id);
     return $e;
 }
@@ -62,7 +76,7 @@ function resumen_entrega(?array $e): ?array
     }
     return [
         'id' => (int) $e['id'], 'version' => (int) $e['version'], 'estado' => $e['estado'], 'responsable' => $e['responsable'] ?? null,
-        'fecha_envio' => $e['fecha_envio'], 'fecha_revision' => $e['fecha_revision'], 'motivo' => $e['motivo'],
+        'fecha_envio' => $e['fecha_envio'], 'fecha_revision' => $e['fecha_revision'], 'motivo' => motivo_de_entrega($e['motivo'], (string) $e['estado']),
         'captura_excepcional' => (bool) $e['captura_excepcional'],
     ];
 }
@@ -108,9 +122,15 @@ function ruta_asignacion(array $a): never
         denegar('asignacion ' . (int) $a['id']);
     }
     $decisiones = decisiones_vigentes((int) $asig['id']);
-    $alumnos = array_map(static function (array $al) use ($decisiones): array {
+    $coordinacion = $u['base'] === 'coordinacion';
+    $alumnos = array_map(static function (array $al) use ($decisiones, $coordinacion): array {
         $d = $decisiones[(int) $al['alumno_id']] ?? null;
         $al['decision'] = $d;
+        if ($d !== null && !$coordinacion) {
+            // El docente ve el resultado para saber a quién no calificar, nunca el motivo ni la evidencia.
+            $d = array_intersect_key($d, array_flip(['id', 'alumno_id', 'resultado', 'resolucion_direccion', 'bloqueado']));
+            $al['decision'] = $d;
+        }
         $al['bloqueado'] = $d['bloqueado'] ?? false;
         return $al;
     }, lista_vigente((int) $asig['grupo_id']));
@@ -120,7 +140,11 @@ function ruta_asignacion(array $a): never
          FROM entrega_calificaciones e JOIN usuario r ON r.id = e.responsable_id WHERE e.asignacion_id = ? ORDER BY e.version DESC',
         [$asig['id']]
     );
-    $historial = filas(
+    foreach ($versiones as &$v) {
+        $v['motivo'] = motivo_de_entrega($v['motivo'], (string) $v['estado']);
+    }
+    unset($v);
+    $historial = !$coordinacion ? [] : filas(
         'SELECT d.id, al.nombre AS alumno, d.resultado, d.motivo, d.fecha, d.resolucion_direccion, r.nombre AS responsable
          FROM decision_evaluacion d JOIN alumno al ON al.id = d.alumno_id JOIN usuario r ON r.id = d.responsable_id
          WHERE d.asignacion_id = ? ORDER BY d.id DESC LIMIT 30',

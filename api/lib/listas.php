@@ -47,13 +47,21 @@ function ruta_lista_grupo(array $a): never
          FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id WHERE g.id = ?',
         [$gid]
     );
-    $estados = $u['base'] === 'coordinacion' ? '' : ' AND i.estado = \'activa\'';
-    $alumnos = filas(
-        'SELECT i.id AS inscripcion_id, al.id AS alumno_id, al.identificador, al.nombre, i.estado, i.fecha_alta, i.fecha_baja, i.observacion
-         FROM inscripcion_grupo i JOIN alumno al ON al.id = i.alumno_id
-         WHERE i.grupo_id = ?' . $estados . ' ORDER BY i.estado, al.nombre',
-        [$gid]
-    );
+    // Fuera de Coordinación solo se ve la lista vigente, y de cada alumno nombre y matrícula (especificación, 10.7).
+    $coordinacion = $u['base'] === 'coordinacion';
+    $alumnos = $coordinacion
+        ? filas(
+            'SELECT i.id AS inscripcion_id, al.id AS alumno_id, al.identificador, al.nombre, i.estado, i.fecha_alta, i.fecha_baja, i.observacion
+             FROM inscripcion_grupo i JOIN alumno al ON al.id = i.alumno_id
+             WHERE i.grupo_id = ? ORDER BY i.estado, al.nombre',
+            [$gid]
+        )
+        : filas(
+            'SELECT al.identificador, al.nombre
+             FROM inscripcion_grupo i JOIN alumno al ON al.id = i.alumno_id
+             WHERE i.grupo_id = ? AND i.estado = \'activa\' ORDER BY al.nombre',
+            [$gid]
+        );
     $asig = [];
     if (tiene_permiso($u, 'asignacion_docente', 'ver')) {
         $extra = $u['base'] === 'docente' ? ' AND a.docente_id = ' . (int) $u['id'] : '';
@@ -144,13 +152,29 @@ function ruta_baja_inscripcion(array $a): never
 
 function ruta_alumnos(): never
 {
-    exigir_permiso('pendiente_academico', 'ver');
+    $u = exigir_permiso('alumno', 'ver');
     $q = trim((string) ($_GET['q'] ?? ''));
     $p = [];
     $donde = '1 = 1';
     if ($q !== '') {
         $donde = '(al.nombre LIKE ? OR al.identificador LIKE ?)';
         $p = ['%' . $q . '%', '%' . $q . '%'];
+    }
+    if ($u['base'] !== 'coordinacion') {
+        // Docente y Auxiliar solo encuentran alumnos con inscripción vigente en sus grupos; nada más que nombre y matrícula.
+        $propios = match ($u['base']) {
+            'docente' => 'SELECT 1 FROM inscripcion_grupo i JOIN asignacion_docente a ON a.grupo_id = i.grupo_id WHERE i.alumno_id = al.id AND i.estado = \'activa\' AND a.docente_id = ?',
+            'auxiliar' => 'SELECT 1 FROM inscripcion_grupo i JOIN asignacion_auxiliar x ON x.grupo_id = i.grupo_id WHERE i.alumno_id = al.id AND i.estado = \'activa\' AND x.usuario_id = ?',
+            default => denegar('alumnos'),
+        };
+        $p[] = $u['id'];
+        responder(200, ['filas' => filas(
+            "SELECT al.id, al.identificador, al.nombre FROM alumno al WHERE $donde AND EXISTS ($propios) ORDER BY al.nombre LIMIT 40",
+            $p
+        )]);
+    }
+    if (!tiene_permiso($u, 'pendiente_academico', 'ver')) {
+        denegar('(pendiente_academico:ver)');
     }
     $filas = filas(
         'SELECT al.id, al.identificador, al.nombre, al.estatus,

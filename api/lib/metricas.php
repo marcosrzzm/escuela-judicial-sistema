@@ -139,7 +139,9 @@ function ruta_tiempo(): never
 
 function ruta_bitacora(): never
 {
-    exigir_permiso('bitacora_cambio', 'ver');
+    $u = exigir_permiso('bitacora_cambio', 'ver');
+    // Fuera de Coordinación la bitácora dice quién hizo qué y cuándo, sin motivos ni valores (especificación, 10.7).
+    $completa = $u['base'] === 'coordinacion';
     $donde = ['1 = 1'];
     $p = [];
     foreach (['entidad' => 'b.entidad', 'accion' => 'b.accion'] as $param => $col) {
@@ -150,9 +152,11 @@ function ruta_bitacora(): never
     }
     $q = trim((string) ($_GET['q'] ?? ''));
     if ($q !== '') {
-        $donde[] = '(u.nombre LIKE ? OR b.motivo LIKE ?)';
+        $donde[] = $completa ? '(u.nombre LIKE ? OR b.motivo LIKE ?)' : 'u.nombre LIKE ?';
         $p[] = "%$q%";
-        $p[] = "%$q%";
+        if ($completa) {
+            $p[] = "%$q%";
+        }
     }
     $w = implode(' AND ', $donde);
     $total = (int) fila("SELECT COUNT(*) AS n FROM bitacora_cambio b LEFT JOIN usuario u ON u.id = b.usuario_id WHERE $w", $p)['n'];
@@ -163,8 +167,11 @@ function ruta_bitacora(): never
         $p
     );
     foreach ($filas as &$f) {
-        $f['antes'] = $f['antes'] === null ? null : json_decode($f['antes'], true);
-        $f['despues'] = $f['despues'] === null ? null : json_decode($f['despues'], true);
+        $f['antes'] = !$completa || $f['antes'] === null ? null : json_decode($f['antes'], true);
+        $f['despues'] = !$completa || $f['despues'] === null ? null : json_decode($f['despues'], true);
+        if (!$completa) {
+            $f['motivo'] = null;
+        }
     }
     $entidades = array_column(filas('SELECT DISTINCT entidad FROM bitacora_cambio ORDER BY entidad'), 'entidad');
     responder(200, ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas, 'entidades' => $entidades]);

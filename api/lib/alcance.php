@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 /** Alcance "propios" de la matriz: qué grupos y asignaciones toca cada rol. Falla cerrado. */
 
+/** Solo Coordinación ve todo. Dirección ve únicamente los casos que se le envían (autorizaciones). */
 function ve_todo(array $u): bool
 {
-    return in_array($u['base'], ['coordinacion', 'direccion'], true);
+    return $u['base'] === 'coordinacion';
 }
 
 /** Puede ver la lista de un grupo (inscripcion_grupo "de sus grupos"). */
@@ -17,7 +18,7 @@ function grupo_en_alcance(array $u, int $grupo_id): bool
         return false;
     }
     return match ($u['base']) {
-        'coordinacion', 'direccion' => true,
+        'coordinacion' => true,
         'docente' => fila('SELECT id FROM asignacion_docente WHERE grupo_id = ? AND docente_id = ? LIMIT 1', [$grupo_id, $u['id']]) !== null,
         'auxiliar' => fila('SELECT id FROM asignacion_auxiliar WHERE grupo_id = ? AND usuario_id = ?', [$grupo_id, $u['id']]) !== null,
         default => false,
