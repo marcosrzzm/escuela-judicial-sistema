@@ -12,6 +12,9 @@ interface EstadoSesion {
   cargando: boolean
   entrar: (correo: string, clave: string) => Promise<Resultado<Sesion>>
   salir: () => Promise<void>
+  /** Vuelve a leer la sesión (al cambiar la contraseña o entrar y salir de "Ver como"). */
+  recargar: () => Promise<void>
+  /** Para ofrecer botones: en "Ver como" nada que escriba se ofrece. El servidor lo exige igual. */
   puede: (recurso: string, accion: string) => boolean
 }
 
@@ -49,7 +52,13 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
         await cerrarSesion()
         setSesion(null)
       },
-      puede: (recurso, accion) => sesion?.permisos.includes(`${recurso}:${accion}`) ?? false,
+      recargar: async () => {
+        const r = await sesionActual()
+        setSesion(r.ok ? r.datos : null)
+      },
+      puede: (recurso, accion) =>
+        !(sesion?.solo_lectura && accion !== 'ver') &&
+        (sesion?.permisos.includes(`${recurso}:${accion}`) ?? false),
     }),
     [sesion, cargando],
   )

@@ -50,9 +50,19 @@ export type Sesion = {
   id: number
   nombre: string
   correo: string
-  rol: Rol
+  /** Clave del rol de la cuenta (un rol del sistema o uno personalizado). */
+  rol: string
+  rol_nombre: string
+  /** Rol del sistema en que se basa: de él salen el alcance y las pantallas. */
+  base: Rol
+  es_sistema: boolean
   /** Permisos efectivos "recurso:accion". El servidor los vuelve a validar en cada petición. */
   permisos: string[]
+  debe_cambiar_clave: boolean
+  /** Verdadero mientras Coordinación mira el sistema como esta cuenta. */
+  solo_lectura: boolean
+  actor_real: { id: number; nombre: string; rol: string } | null
+  datos_ficticios: boolean
 }
 
 export type Periodo = {
@@ -455,3 +465,83 @@ export const registrarLineaBase = (datos: {
 }) => enviar<{ id: number }>('/metricas/linea-base', datos)
 export const enviarTiempo = (tipo: 'lista' | 'cierre', grupoId: number, segundos: number) =>
   enviar<{ segundos_aceptados: number }>('/metricas/tiempo', { tipo, grupo_id: grupoId, segundos })
+
+// ─── Administración ──────────────────────────────────────────────────────────
+
+export type Usuario = {
+  id: number
+  nombre: string
+  correo: string
+  rol: string
+  rol_nombre: string
+  base: Rol
+  estado: 'activo' | 'inactivo'
+  debe_cambiar_clave: boolean
+  grupo_ids: number[]
+}
+export type RolAdmin = {
+  id: number
+  clave: string
+  nombre: string
+  base: Rol
+  permisos: string[]
+  es_sistema: boolean
+  estado: 'activo' | 'inactivo'
+  usuarios_activos: number
+}
+export type Roles = { filas: RolAdmin[]; techos: Record<Rol, string[]> }
+export type Materia = { id: number; clave: string; nombre: string }
+export type Docente = { id: number; nombre: string }
+export type ResumenImportacion = {
+  creadas: number
+  inscritas: number
+  rechazadas: { fila: number; matricula: string; razon: string }[]
+}
+
+export const ajustesPublicos = () => leer<{ datos_ficticios: boolean }>('/ajustes-publicos')
+export const cambiarMiClave = (datos: { actual: string; nueva: string; confirmacion: string }) =>
+  actualizar<Sesion>('/mi-clave', datos)
+export const verComo = (usuarioId: number) => enviar<{ ok: true }>(`/ver-como/${usuarioId}`)
+export const salirDeVerComo = () => enviar<{ ok: true }>('/ver-como/salir')
+
+export type DatosUsuario = { nombre: string; correo: string; rol: string }
+export const crearUsuario = (datos: DatosUsuario) =>
+  enviar<{ id: number; clave_temporal: string }>('/usuarios', datos)
+export const editarUsuario = (id: number, datos: DatosUsuario & { estado: string }) =>
+  actualizar<{ id: number }>(`/usuarios/${id}`, datos)
+export const restablecerClave = (id: number) =>
+  actualizar<{ id: number; clave_temporal: string }>(`/usuarios/${id}/clave-temporal`)
+export const guardarGruposAuxiliar = (id: number, grupoIds: number[]) =>
+  actualizar<{ id: number }>(`/usuarios/${id}/grupos-auxiliar`, { grupo_ids: grupoIds })
+export const crearRol = (datos: { nombre: string; base: Rol; permisos: string[] }) =>
+  enviar<{ id: number }>('/roles', datos)
+export const editarRol = (
+  id: number,
+  datos: { nombre: string; estado: string; permisos: string[] },
+) => actualizar<{ id: number }>(`/roles/${id}`, datos)
+
+export const crearPeriodo = (datos: { nombre: string; fecha_inicio: string; fecha_fin: string }) =>
+  enviar<{ id: number }>('/periodos', datos)
+export const cambiarEstadoPeriodo = (id: number, estado: string) =>
+  actualizar<{ id: number }>(`/periodos/${id}`, { estado })
+export const crearMateria = (datos: { clave: string; nombre: string }) =>
+  enviar<{ id: number }>('/materias', datos)
+export const editarMateria = (id: number, datos: { clave: string; nombre: string }) =>
+  actualizar<{ id: number }>(`/materias/${id}`, datos)
+export type DatosGrupo = { periodo_id: number; clave: string; programa: string; turno: string }
+export const crearGrupo = (datos: DatosGrupo) => enviar<{ id: number }>('/grupos', datos)
+export const editarGrupo = (id: number, datos: DatosGrupo & { estado: string }) =>
+  actualizar<{ id: number }>(`/grupos/${id}`, datos)
+export const crearAsignacion = (datos: {
+  grupo_id: number
+  materia_id: number
+  docente_id: number
+}) => enviar<{ id: number }>('/asignaciones', datos)
+export const cambiarDocente = (id: number, docenteId: number, motivo: string) =>
+  actualizar<{ id: number }>(`/asignaciones/${id}`, { docente_id: docenteId, motivo })
+export const editarAlumno = (
+  id: number,
+  datos: { identificador: string; nombre: string; estatus: string; motivo: string },
+) => actualizar<{ id: number }>(`/alumnos/${id}`, datos)
+export const importarLista = (grupoId: number, texto: string) =>
+  enviar<ResumenImportacion>(`/grupos/${grupoId}/importar`, { texto })

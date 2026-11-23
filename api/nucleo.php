@@ -339,7 +339,8 @@ function guardia_de_peticion(string $metodo, string $ruta): void
             responder(200, ['segundos_aceptados' => 0]);
         }
         if (!($metodo === 'POST' && in_array($ruta, ['/ver-como/salir', '/logout'], true))) {
-            denegar('(vista de solo lectura)');
+            registrar_bitacora('acceso', null, 'acceso_denegado', null, null, "$metodo $ruta (vista de solo lectura)");
+            error_http(403, 'Estás en una vista de solo lectura: no se guarda nada. Sal de la vista para trabajar.');
         }
     }
 }

@@ -10,6 +10,7 @@ import { CampoTexto } from '@/componentes/CampoFormulario'
 import { toast } from 'sonner'
 import { avisar } from '@/lib/avisos'
 import { rutaInicial, rutaPermitida } from '@/lib/navegacion'
+import { useDatos } from '@/lib/datos'
 import { useSesion } from '@/lib/sesion'
 
 const CUENTAS = [
@@ -28,17 +29,18 @@ export function Entrar() {
   const [clave, setClave] = useState('')
   const [ver, setVer] = useState(false)
   const [entrando, setEntrando] = useState(false)
+  const ajustes = useDatos<{ datos_ficticios: boolean }>('/ajustes-publicos')
 
   // Mientras se resuelve si ya hay sesión no se decide nada: sin este freno el formulario
   // parpadea y luego desaparece al recargar.
   if (cargando) return null
   const desde = (ubicacion.state as { desde?: Location } | null)?.desde
   // Un destino guardado de otra cuenta no se respeta si este rol no tiene esa pantalla.
-  const destino = desde && sesion && rutaPermitida(desde.pathname, sesion.rol) ? desde : undefined
+  const destino = desde && sesion && rutaPermitida(desde.pathname, sesion) ? desde : undefined
   if (sesion)
     return (
       <Navigate
-        to={destino ? `${destino.pathname}${destino.search}` : rutaInicial(sesion.rol)}
+        to={destino ? `${destino.pathname}${destino.search}` : rutaInicial(sesion)}
         replace
       />
     )
@@ -56,9 +58,11 @@ export function Entrar() {
     <main className="flex min-h-dvh items-center justify-center bg-paper-2 p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <p className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
-            Prototipo · datos ficticios
-          </p>
+          {ajustes.datos?.datos_ficticios === false ? null : (
+            <p className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
+              Prototipo · datos ficticios
+            </p>
+          )}
           <CardTitle className="text-2xl">Escuela Judicial</CardTitle>
           <CardDescription>
             Continuidad académica de la Coordinación de Posgrados. Entra con tu correo y tu

@@ -1,4 +1,4 @@
-import { Printer, UserMinus, UserPlus } from 'lucide-react'
+import { FileUp, Printer, UserMinus, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
@@ -25,9 +25,11 @@ import { esquemaAltaNuevo, type AltaNuevo } from '@/esquemas/inscripcion'
 import {
   altaInscripcion,
   bajaInscripcion,
+  importarLista,
   type AlumnoBusqueda,
   type AlumnoLista,
   type ListaGrupo,
+  type ResumenImportacion,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
 import { resolverZod, soloFecha } from '@/lib/formulario'
@@ -172,12 +174,113 @@ function DialogoAlta({
   )
 }
 
+const MAX_FILAS_IMPORTAR = 500
+
+/** Importar la lista de un grupo desde un CSV con matrícula y nombre; muestra el resumen al terminar. */
+function DialogoImportar({
+  grupoId,
+  grupoClave,
+  alCerrar,
+}: {
+  grupoId: number
+  grupoClave: string
+  alCerrar: () => void
+}) {
+  const [texto, setTexto] = useState<string | null>(null)
+  const [archivo, setArchivo] = useState('')
+  const [resumen, setResumen] = useState<ResumenImportacion | null>(null)
+  const importar = useAccion((t: string) => importarLista(grupoId, t), {
+    exito: (r) =>
+      `Importación terminada: ${r.inscritas} inscritos, ${r.rechazadas.length} rechazados`,
+    alExito: setResumen,
+  })
+  return (
+    <Dialog open onOpenChange={(a) => !a && alCerrar()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Importar la lista de {grupoClave}</DialogTitle>
+          <DialogDescription>
+            Un archivo CSV en UTF-8 con dos columnas: matrícula y nombre (la fila de títulos es
+            opcional). Máximo {MAX_FILAS_IMPORTAR} filas. Los alumnos que no existen se crean y
+            todos quedan inscritos en el grupo.
+          </DialogDescription>
+        </DialogHeader>
+        {resumen ? (
+          <div className="flex flex-col gap-3 text-sm" role="status">
+            <p>
+              <span className="num">{resumen.creadas}</span> alumnos creados ·{' '}
+              <span className="num">{resumen.inscritas}</span> inscritos ·{' '}
+              <span className="num">{resumen.rechazadas.length}</span> filas rechazadas
+            </p>
+            {resumen.rechazadas.length > 0 ? (
+              <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-line p-3">
+                {resumen.rechazadas.map((r) => (
+                  <li key={`${r.fila}-${r.matricula}`}>
+                    <span className="text-ink-3 num">Fila {r.fila}</span>
+                    {r.matricula ? ` · ${r.matricula}` : ''}: {r.razon}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="archivo-lista"
+              className="text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase"
+            >
+              Archivo CSV
+            </label>
+            <input
+              id="archivo-lista"
+              type="file"
+              accept=".csv,.txt,text/csv"
+              className="text-sm"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                setArchivo(f?.name ?? '')
+                void (f ? f.text() : Promise.resolve(null)).then(setTexto)
+              }}
+            />
+          </div>
+        )}
+        <DialogFooter>
+          {resumen ? (
+            <Button type="button" onClick={alCerrar}>
+              Cerrar
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={alCerrar}
+                disabled={importar.ocupado}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={texto === null || importar.ocupado}
+                onClick={() => texto !== null && importar.ejecutar(texto)}
+              >
+                {importar.ocupado ? 'Importando…' : `Importar ${archivo}`}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function Grupos() {
   const sel = useSeleccionGrupo()
   const grupoId = sel.grupo?.id ?? null
   useTiempoActivo('lista', grupoId)
   const lista = useDatos<ListaGrupo>(grupoId ? `/grupos/${grupoId}/lista` : null)
   const [altaAbierta, setAltaAbierta] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [baja, setBaja] = useState<AlumnoLista | null>(null)
   const darBaja = useAccion(
     (v: { id: number; observacion: string }) => bajaInscripcion(v.id, v.observacion),
@@ -223,10 +326,20 @@ export function Grupos() {
       titulo="Grupos y listas"
       descripcion="La lista vigente de cada grupo. Docentes y auxiliares ven esta misma lista, sin recapturar nada."
       acciones={
-        <Button type="button" variant="outline" onClick={() => window.print()} disabled={!datos}>
-          <Printer strokeWidth={2.4} aria-hidden="true" />
-          Imprimir lista
-        </Button>
+        <>
+          {editable ? (
+            <SiPuede recurso="inscripcion_grupo" accion="crear">
+              <Button type="button" variant="outline" onClick={() => setImportando(true)}>
+                <FileUp strokeWidth={2.4} aria-hidden="true" />
+                Importar lista
+              </Button>
+            </SiPuede>
+          ) : null}
+          <Button type="button" variant="outline" onClick={() => window.print()} disabled={!datos}>
+            <Printer strokeWidth={2.4} aria-hidden="true" />
+            Imprimir lista
+          </Button>
+        </>
       }
       accionPrincipal={
         editable ? (
@@ -312,6 +425,14 @@ export function Grupos() {
             abierto={altaAbierta}
             alCambiarApertura={setAltaAbierta}
           />
+          {importando ? (
+            <DialogoImportar
+              key={datos.grupo.id}
+              grupoId={datos.grupo.id}
+              grupoClave={datos.grupo.clave}
+              alCerrar={() => setImportando(false)}
+            />
+          ) : null}
           <DialogoMotivo
             abierto={baja !== null}
             alCambiarApertura={(a) => !a && setBaja(null)}

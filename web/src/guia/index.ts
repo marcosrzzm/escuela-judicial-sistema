@@ -1,6 +1,56 @@
 import type { Guia } from './tipos'
 
 const GUIAS: Record<string, Guia> = {
+  '/catalogos': {
+    titulo: 'Cómo se usan los Catálogos',
+    queEs:
+      'Lo que ordena el trabajo del periodo: periodos, materias, grupos y quién da cada materia.',
+    pasos: [
+      'Elige la pestaña: Periodos, Materias, Grupos o Asignaciones.',
+      'Pulsa el botón "nuevo" de la pestaña y llena el formulario.',
+      'En Asignaciones, elige grupo, materia y docente. Solo salen docentes con cuenta activa.',
+      'Para cambiar al docente de una asignación, pulsa "Cambiar docente" y escribe el motivo.',
+    ],
+    despues:
+      'Cada alta o cambio queda en la bitácora. El docente nuevo ve su asignación y la lista del grupo en cuanto la creas.',
+    tropiezos: [
+      'Una materia solo puede tener un docente por grupo.',
+      'Cerrar un periodo no borra nada: solo deja de aceptar capturas.',
+      'Los datos de un alumno se corrigen en Historial del alumno, con motivo.',
+    ],
+    siguiente: { etiqueta: 'Grupos y listas', ruta: '/grupos' },
+  },
+  '/usuarios': {
+    titulo: 'Cómo se usa Usuarios y roles',
+    queEs: 'Quién puede entrar al sistema y qué puede hacer cada cuenta.',
+    pasos: [
+      'En la pestaña Usuarios, pulsa "Cuenta nueva" y escribe nombre, correo y rol.',
+      'Anota la contraseña temporal que aparece: se muestra una sola vez.',
+      'Para dar de baja a alguien, pulsa "Editar" y cambia el estado a Inactivo.',
+      'Si alguien olvidó su contraseña, pulsa "Contraseña" para generar otra temporal.',
+      'Para ver lo que ve otra persona, pulsa "Ver como". Es solo lectura; sales con "Salir de la vista".',
+      'En la pestaña Roles puedes crear un rol propio: eliges un rol base y marcas los permisos.',
+    ],
+    despues:
+      'Cambiar el rol, inactivar o restablecer la contraseña cierra las sesiones abiertas de esa cuenta.',
+    tropiezos: [
+      'La última cuenta activa de Coordinación no se puede inactivar ni cambiar de rol.',
+      'Un rol propio nunca puede administrar usuarios ni roles.',
+      'Un rol con cuentas activas no se puede inactivar: primero cámbiales el rol.',
+    ],
+    siguiente: { etiqueta: 'Catálogos', ruta: '/catalogos' },
+  },
+  '/mi-clave': {
+    titulo: 'Cómo se usa Mi contraseña',
+    queEs: 'Aquí cambias la contraseña de tu cuenta.',
+    pasos: [
+      'Escribe tu contraseña actual (o la temporal que te dieron).',
+      'Escribe la nueva, de al menos 10 caracteres y distinta de tu correo.',
+      'Repítela y pulsa "Cambiar contraseña".',
+    ],
+    despues: 'Entras directo a tu primera pantalla. Tus otras sesiones abiertas se cierran.',
+    tropiezos: ['Mientras la contraseña sea temporal, el sistema no deja abrir otra pantalla.'],
+  },
   '/': {
     titulo: 'Cómo se usa Inicio',
     queEs:
@@ -22,6 +72,7 @@ const GUIAS: Record<string, Guia> = {
       'Elige periodo y grupo.',
       'Para sumar a un alumno, pulsa "Agregar alumno" y elige uno existente o captura uno nuevo.',
       'Para quitarlo, pulsa "Dar de baja" en su fila y escribe la observación.',
+      'Para cargar muchos de golpe, pulsa "Importar lista" y elige un archivo CSV con matrícula y nombre.',
       'Pulsa "Imprimir lista" si la necesitas en papel.',
     ],
     despues:
@@ -29,6 +80,7 @@ const GUIAS: Record<string, Guia> = {
     tropiezos: [
       'Un alumno no puede estar dos veces activo en el mismo grupo.',
       'La lista de un periodo cerrado solo se consulta.',
+      'Al importar, las filas repetidas o con matrícula vacía se rechazan y el resumen dice por qué; las demás sí entran.',
     ],
     siguiente: { etiqueta: 'Derecho a evaluación', ruta: '/derecho' },
   },

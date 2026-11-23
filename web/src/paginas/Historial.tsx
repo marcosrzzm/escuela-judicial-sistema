@@ -1,4 +1,4 @@
-import { CirclePlus } from 'lucide-react'
+import { CirclePlus, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSearchParams } from 'react-router-dom'
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CampoAreaTexto, CampoSelect } from '@/componentes/CampoFormulario'
+import { CampoAreaTexto, CampoSelect, CampoTexto } from '@/componentes/CampoFormulario'
 import { DialogoMotivo } from '@/componentes/DialogoMotivo'
 import { InsigniaEstado } from '@/componentes/Estados'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
@@ -20,15 +20,18 @@ import { FilterBar } from '@/componentes/FilterBar'
 import { Pagina } from '@/componentes/Pagina'
 import { PieDeFormulario } from '@/componentes/PieDeFormulario'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
+import { esquemaAlumno, type AlumnoFormulario } from '@/esquemas/administracion'
 import { esquemaPendiente, type PendienteFormulario } from '@/esquemas/pendiente'
 import {
   crearPendiente,
+  editarAlumno,
   resolverPendiente,
   type AlumnoBusqueda,
   type Historial as TipoHistorial,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
 import { resolverZod } from '@/lib/formulario'
+import { useSesion } from '@/lib/sesion'
 
 function DialogoPendiente({
   datos,
@@ -120,7 +123,93 @@ function DialogoPendiente({
   )
 }
 
+/** Corregir los datos de un alumno: matrícula, nombre y estatus, siempre con motivo. */
+function DialogoEditarAlumno({
+  alumno,
+  alCerrar,
+}: {
+  alumno: TipoHistorial['alumno']
+  alCerrar: () => void
+}) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<AlumnoFormulario>({
+    resolver: resolverZod(esquemaAlumno),
+    defaultValues: {
+      identificador: alumno.identificador,
+      nombre: alumno.nombre,
+      estatus: alumno.estatus as AlumnoFormulario['estatus'],
+      motivo: '',
+    },
+  })
+  const guardar = useAccion((v: AlumnoFormulario) => editarAlumno(alumno.id, v), {
+    exito: (_r, v) => `Datos de ${v.nombre} actualizados`,
+    alExito: alCerrar,
+  })
+  return (
+    <Dialog open onOpenChange={(a) => !a && alCerrar()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar los datos de {alumno.nombre}</DialogTitle>
+          <DialogDescription>
+            El cambio queda en la bitácora con el valor anterior y este motivo.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          id="form-alumno"
+          className="flex flex-col gap-4"
+          onSubmit={handleSubmit((v) => guardar.ejecutar(v))}
+          noValidate
+        >
+          <CampoTexto
+            etiqueta="Matrícula"
+            obligatorio
+            registro={register('identificador')}
+            error={errors.identificador?.message}
+          />
+          <CampoTexto
+            etiqueta="Nombre"
+            obligatorio
+            registro={register('nombre')}
+            error={errors.nombre?.message}
+          />
+          <CampoSelect
+            etiqueta="Estatus"
+            valor={watch('estatus')}
+            alCambiar={(v) => setValue('estatus', v as AlumnoFormulario['estatus'])}
+            opciones={[
+              { valor: 'activo', etiqueta: 'Activo' },
+              { valor: 'baja', etiqueta: 'Baja' },
+              { valor: 'egresado', etiqueta: 'Egresado' },
+            ]}
+          />
+          <CampoAreaTexto
+            etiqueta="Motivo del cambio"
+            obligatorio
+            registro={register('motivo')}
+            error={errors.motivo?.message}
+          />
+        </form>
+        <DialogFooter>
+          <PieDeFormulario
+            formId="form-alumno"
+            onCancelar={alCerrar}
+            textoConfirmar="Guardar cambios"
+            trabajando={guardar.ocupado}
+          />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function DetalleAlumno({ id }: { id: number }) {
+  const { puede } = useSesion()
+  const [editando, setEditando] = useState(false)
   const h = useDatos<TipoHistorial>(`/alumnos/${id}/historial`)
   const [nuevo, setNuevo] = useState(false)
   const [resolver, setResolver] = useState<TipoHistorial['pendientes'][number] | null>(null)
@@ -142,6 +231,12 @@ function DetalleAlumno({ id }: { id: number }) {
         <p className="text-sm text-ink-3">
           <span className="num">{d.alumno.identificador}</span> · {abiertos} pendientes abiertos
         </p>
+        {puede('alumno', 'modificar') ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditando(true)}>
+            <Pencil strokeWidth={2.4} aria-hidden="true" />
+            Editar datos
+          </Button>
+        ) : null}
       </div>
       {d.periodos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-line-strong bg-paper-2 px-4 py-6 text-sm text-ink-3">
@@ -245,6 +340,9 @@ function DetalleAlumno({ id }: { id: number }) {
         )}
       </div>
       <DialogoPendiente datos={d} abierto={nuevo} alCambiarApertura={setNuevo} />
+      {editando ? (
+        <DialogoEditarAlumno alumno={d.alumno} alCerrar={() => setEditando(false)} />
+      ) : null}
       <DialogoMotivo
         abierto={resolver !== null}
         alCambiarApertura={(a) => {

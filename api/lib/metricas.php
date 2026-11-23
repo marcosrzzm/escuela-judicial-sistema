@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 function ruta_inicio(): never
 {
-    exigir_permiso('usuario', 'ver');
+    $u = exigir_permiso('cierre', 'ver');
+    if ($u['base'] !== 'coordinacion') {
+        denegar('inicio');
+    }
     $por_revisar = fila('SELECT COUNT(*) AS n FROM entrega_calificaciones WHERE estado = \'enviada\'');
     $a_direccion = fila(
         'SELECT COUNT(*) AS n FROM decision_evaluacion d

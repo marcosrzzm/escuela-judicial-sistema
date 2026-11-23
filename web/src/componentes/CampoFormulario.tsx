@@ -75,7 +75,10 @@ export function CampoTexto({
   tipo = 'text',
   ...entrada
 }: BaseCampo &
-  EntradaCampoTexto & { placeholder?: string; tipo?: 'text' | 'email' | 'tel' | 'url' }) {
+  EntradaCampoTexto & {
+    placeholder?: string
+    tipo?: 'text' | 'email' | 'tel' | 'url' | 'password'
+  }) {
   const idGenerado = useId()
   const id = entrada.registro ? entrada.registro.name : idGenerado
   const propsEntrada = entrada.registro ?? {

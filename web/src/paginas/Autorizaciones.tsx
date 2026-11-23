@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { DialogoMotivo } from '@/componentes/DialogoMotivo'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
 import { Pagina } from '@/componentes/Pagina'
+import { SiPuede } from '@/componentes/SiPuede'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
 import {
   resolverCierre,
@@ -82,7 +83,7 @@ export function Autorizaciones() {
               claveFila={(d) => d.id}
               descripcion="Decisiones que esperan autorización"
               accionesFila={(d) => (
-                <>
+                <SiPuede recurso="decision_evaluacion" accion="modificar">
                   <Button
                     type="button"
                     size="sm"
@@ -104,7 +105,7 @@ export function Autorizaciones() {
                     <X strokeWidth={2.4} aria-hidden="true" />
                     Rechazar
                   </Button>
-                </>
+                </SiPuede>
               )}
               vacio={{
                 variante: 'vacio',
@@ -122,7 +123,7 @@ export function Autorizaciones() {
               claveFila={(c) => c.id}
               descripcion="Cierres que esperan autorización"
               accionesFila={(c) => (
-                <>
+                <SiPuede recurso="cierre" accion="modificar">
                   <Button
                     type="button"
                     size="sm"
@@ -140,7 +141,7 @@ export function Autorizaciones() {
                     <X strokeWidth={2.4} aria-hidden="true" />
                     Devolver
                   </Button>
-                </>
+                </SiPuede>
               )}
               vacio={{
                 variante: 'vacio',

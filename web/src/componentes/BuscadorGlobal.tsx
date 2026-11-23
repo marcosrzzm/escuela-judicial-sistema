@@ -73,7 +73,7 @@ export function BuscadorGlobal() {
     void navigate(ruta)
   }
 
-  const pantallas = areasVisibles(sesion?.rol)
+  const pantallas = areasVisibles(sesion)
 
   return (
     <>

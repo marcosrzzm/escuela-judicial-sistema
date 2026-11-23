@@ -11,7 +11,7 @@ import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
 import { Pagina } from '@/componentes/Pagina'
 import type { InicioCoordinacion } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
-import { rutaInicial } from '@/lib/navegacion'
+import { areasVisibles, rutaInicial } from '@/lib/navegacion'
 import { useSesion } from '@/lib/sesion'
 
 function Contador({
@@ -51,13 +51,13 @@ function Contador({
 
 export function Inicio() {
   const { sesion } = useSesion()
+  const tieneInicio = areasVisibles(sesion).some((a) => a.clave === 'inicio')
   const { datos, cargando, error, reintentar } = useDatos<InicioCoordinacion>(
-    sesion?.rol === 'coordinacion' ? '/inicio' : null,
+    tieneInicio ? '/inicio' : null,
   )
 
   // Solo Coordinación tiene Inicio con contadores; los demás roles entran a su primera pantalla.
-  if (sesion && sesion.rol !== 'coordinacion')
-    return <Navigate to={rutaInicial(sesion.rol)} replace />
+  if (sesion && !tieneInicio) return <Navigate to={rutaInicial(sesion)} replace />
 
   return (
     <Pagina

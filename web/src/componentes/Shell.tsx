@@ -4,6 +4,7 @@
  * Aquí vive el guardia de ruta: la URL directa a la pantalla de otro rol cae en SinPermiso.
  */
 import {
+  KeyRound,
   LogOut,
   Menu,
   Moon,
@@ -16,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +37,8 @@ import {
 } from '@/components/ui/sheet'
 import { GuiaPantalla } from '@/componentes/GuiaPantalla'
 import { Migas } from '@/componentes/Migas'
+import { salirDeVerComo } from '@/lib/api'
+import { useAccion } from '@/lib/datos'
 import { areasVisibles, areaDeRuta, rutaPermitida } from '@/lib/navegacion'
 import { useSesion } from '@/lib/sesion'
 import { cn } from '@/lib/utils'
@@ -87,7 +90,7 @@ function ContenidoNavegacion({
 }) {
   const { sesion } = useSesion()
   const ubicacion = useLocation()
-  const areas = areasVisibles(sesion?.rol)
+  const areas = areasVisibles(sesion)
   const areaActiva = areaDeRuta(ubicacion.pathname)
 
   return (
@@ -163,6 +166,41 @@ function ContenidoNavegacion({
   )
 }
 
+/** Franja fija de la vista "Ver como": dice a quién se mira, que es solo lectura y deja salir. */
+function FranjaVerComo() {
+  const { sesion, recargar } = useSesion()
+  const navegar = useNavigate()
+  const salir = useAccion(() => salirDeVerComo(), {
+    exito: () => 'Saliste de la vista',
+    alExito: () => {
+      void recargar().then(() => navegar('/usuarios'))
+    },
+  })
+  if (!sesion?.solo_lectura) return null
+  return (
+    <div
+      role="status"
+      data-no-imprimir
+      className="sticky top-0 z-50 flex h-16 items-center justify-between gap-3 bg-ink px-4 text-sm text-white sm:h-11 sm:px-6"
+    >
+      <p className="line-clamp-2 min-w-0 leading-tight">
+        Estás viendo el sistema como <strong>{sesion.nombre}</strong> ({sesion.rol_nombre}). Solo
+        lectura.
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="shrink-0"
+        disabled={salir.ocupado}
+        onClick={() => salir.ejecutar(undefined)}
+      >
+        Salir de la vista
+      </Button>
+    </div>
+  )
+}
+
 export function Shell() {
   const { sesion, salir, cargando } = useSesion()
   const ubicacion = useLocation()
@@ -234,6 +272,9 @@ export function Shell() {
     )
   }
   if (!sesion) return <Navigate to="/entrar" replace state={{ desde: ubicacion }} />
+  // Con contraseña temporal solo se puede cambiarla: el servidor rechaza todo lo demás.
+  if (sesion.debe_cambiar_clave && ubicacion.pathname !== '/mi-clave')
+    return <Navigate to="/mi-clave" replace />
 
   function alternarDensidad() {
     const nueva = densidad === 'comoda' ? 'compacta' : 'comoda'
@@ -255,7 +296,7 @@ export function Shell() {
     }
   }
 
-  const puedeVerRuta = rutaPermitida(ubicacion.pathname, sesion.rol)
+  const puedeVerRuta = rutaPermitida(ubicacion.pathname, sesion)
   const contenido = puedeVerRuta ? <Outlet /> : <SinPermiso />
 
   const menuUsuario = (
@@ -267,8 +308,17 @@ export function Shell() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>{sesion.nombre}</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          {sesion.nombre}
+          <span className="block text-xs font-normal text-ink-3">{sesion.rol_nombre}</span>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/mi-clave">
+            <KeyRound strokeWidth={2.4} aria-hidden="true" />
+            Mi contraseña
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={alternarDensidad}>
           <Rows3 strokeWidth={2.4} aria-hidden="true" />
           Densidad: {densidad === 'comoda' ? 'Cómoda' : 'Compacta'}
@@ -300,12 +350,18 @@ export function Shell() {
   )
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-paper">
+    <div
+      className={cn(
+        'min-h-dvh overflow-x-clip bg-paper',
+        sesion.solo_lectura && '[--franja:4rem] sm:[--franja:2.75rem]',
+      )}
+    >
       {saltoAlContenido}
+      {sesion.solo_lectura ? <FranjaVerComo /> : null}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden transition-[width] duration-ui md:block',
+          'fixed top-[var(--franja,0px)] bottom-0 left-0 z-40 hidden overflow-hidden transition-[width] duration-ui md:block',
           cerrado ? 'md:w-0' : colapsado ? 'md:w-[72px] lg:w-16' : 'md:w-[72px] lg:w-64',
         )}
       >
@@ -324,7 +380,7 @@ export function Shell() {
           !cerrado && (colapsado ? 'lg:pl-16' : 'lg:pl-64'),
         )}
       >
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-paper px-4 md:hidden">
+        <header className="sticky top-[var(--franja,0px)] z-30 flex h-16 items-center gap-3 border-b border-line bg-paper px-4 md:hidden">
           <Sheet open={menuAbierto} onOpenChange={setMenuAbierto}>
             <SheetContent side="left" className="w-64 border-nav-3 bg-nav p-0 text-nav-txt">
               <SheetHeader className="sr-only">
@@ -379,12 +435,14 @@ export function Shell() {
           </div>
         </header>
 
-        <p
-          data-no-imprimir
-          className="border-b border-line bg-brand-soft px-4 py-1.5 text-center text-xs font-semibold tracking-[0.08em] text-brand-deep uppercase sm:px-6 md:px-8"
-        >
-          Prototipo · datos ficticios
-        </p>
+        {sesion.datos_ficticios ? (
+          <p
+            data-no-imprimir
+            className="border-b border-line bg-brand-soft px-4 py-1.5 text-center text-xs font-semibold tracking-[0.08em] text-brand-deep uppercase sm:px-6 md:px-8"
+          >
+            Prototipo · datos ficticios
+          </p>
+        ) : null}
 
         <main id="contenido-principal" className="mx-auto w-full max-w-7xl p-4 sm:p-6 md:p-8">
           {contenido}

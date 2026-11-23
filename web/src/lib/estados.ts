@@ -52,6 +52,8 @@ const DEFINICIONES = {
   resuelto: { etiqueta: 'Resuelto', ...EXITO },
   cerrado: { etiqueta: 'Cerrado', ...NEUTRO },
   activo: { etiqueta: 'Activo', ...EXITO },
+  inactivo: { etiqueta: 'Inactivo', ...NEUTRO },
+  egresado: { etiqueta: 'Egresado', ...PROCESO },
 } as const satisfies Record<string, DefinicionEstado>
 
 export function definicionEstado(estado: string): DefinicionEstado {

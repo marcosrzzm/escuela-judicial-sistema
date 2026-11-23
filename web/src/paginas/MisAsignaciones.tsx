@@ -25,6 +25,7 @@ import {
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
 import { fechaHora } from '@/lib/formulario'
+import { useSesion } from '@/lib/sesion'
 
 export function MisAsignaciones() {
   const navegar = useNavigate()
@@ -74,6 +75,7 @@ export function MisAsignaciones() {
 }
 
 function Captura({ detalle }: { detalle: DetalleAsignacion }) {
+  const { puede } = useSesion()
   const { entrega, asignacion } = detalle
   const filas: FilaCaptura[] = detalle.alumnos.map((a) => ({
     alumno_id: a.alumno_id,
@@ -168,11 +170,13 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
         filas={filas}
         valores={valores}
         alCambiar={(id, v) => setValores((p) => ({ ...p, [id]: v }))}
-        deshabilitado={!editable || guardar.ocupado || enviar.ocupado}
+        deshabilitado={
+          !editable || !puede('calificacion', 'modificar') || guardar.ocupado || enviar.ocupado
+        }
         mostrarErrores={intento}
       />
 
-      {editable ? (
+      {editable && puede('entrega_calificaciones', 'modificar') ? (
         <div className="flex flex-wrap gap-2" data-no-imprimir>
           <Button
             type="button"
