@@ -119,7 +119,7 @@ function ruta_preparar_cierre(array $a): never
 
 function exigir_rol_cierre(array $u, string $rol): void
 {
-    if ($u['rol'] !== $rol) {
+    if ($u['base'] !== $rol) {
         denegar('cierre');
     }
 }

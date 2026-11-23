@@ -80,7 +80,7 @@ function ruta_asignaciones(): never
     } else {
         $donde[] = 'pe.estado = \'abierto\'';
     }
-    if ($u['rol'] === 'docente') {
+    if ($u['base'] === 'docente') {
         $donde[] = 'a.docente_id = ?';
         $p[] = $u['id'];
     } elseif (!ve_todo($u)) {
@@ -151,7 +151,7 @@ function entrega_de_docente(array $u, int $id): array
 {
     $e = entrega_o_404($id);
     $asig = asignacion_en_alcance($u, (int) $e['asignacion_id']);
-    if ($asig === null || $u['rol'] !== 'docente') {
+    if ($asig === null || $u['base'] !== 'docente') {
         denegar("entrega $id");
     }
     return [$e, $asig];
@@ -161,7 +161,7 @@ function ruta_crear_entrega(array $a): never
 {
     $u = exigir_permiso('entrega_calificaciones', 'crear');
     $asig = asignacion_en_alcance($u, (int) $a['id']);
-    if ($asig === null || $u['rol'] !== 'docente') {
+    if ($asig === null || $u['base'] !== 'docente') {
         denegar('asignacion ' . (int) $a['id']);
     }
     if ($asig['periodo_estado'] !== 'abierto') {
@@ -305,7 +305,7 @@ function ruta_enviar_entrega(array $a): never
 function ruta_captura_excepcional(array $a): never
 {
     $u = exigir_permiso('entrega_calificaciones', 'crear');
-    if ($u['rol'] !== 'coordinacion') {
+    if ($u['base'] !== 'coordinacion') {
         denegar('captura excepcional');
     }
     $asig = cargar_asignacion((int) $a['id']);
@@ -488,7 +488,10 @@ function ruta_crear_decision(array $a): never
 
 function ruta_autorizaciones(): never
 {
-    exigir_permiso('decision_evaluacion', 'modificar');
+    $u = exigir_permiso('decision_evaluacion', 'ver');
+    if ($u['base'] !== 'direccion') {
+        denegar('autorizaciones');
+    }
     $decisiones = filas(
         'SELECT d.id, al.nombre AS alumno, al.identificador, m.nombre AS materia, g.clave AS grupo, pe.nombre AS periodo,
                 d.motivo, d.referencia_evidencia, d.fecha, r.nombre AS responsable

@@ -174,6 +174,28 @@ function token_de_cookie(): ?string
     return preg_match('/^[a-f0-9]{64}$/', $t) === 1 ? $t : null;
 }
 
+/** Cuenta activa con su rol cargado: base, permisos efectivos y si es rol del sistema. */
+function cargar_usuario(int $id): ?array
+{
+    $u = fila(
+        'SELECT u.id, u.nombre, u.correo, u.rol, u.debe_cambiar_clave, r.nombre AS rol_nombre, r.base, r.es_sistema, r.permisos
+         FROM usuario u JOIN rol r ON r.clave = u.rol AND r.estado = \'activo\'
+         WHERE u.id = ? AND u.estado = \'activo\'',
+        [$id]
+    );
+    if ($u === null) {
+        return null;
+    }
+    $u['es_sistema'] = (int) $u['es_sistema'] === 1;
+    $u['debe_cambiar_clave'] = (int) $u['debe_cambiar_clave'] === 1;
+    $u['permisos'] = permisos_de_rol($u['base'], $u['es_sistema'], $u['permisos']);
+    return $u;
+}
+
+/**
+ * El usuario efectivo de la petición. Si la sesión está en "ver como", es la cuenta vista (con sus
+ * permisos, base y alcance), `solo_lectura` es true y `actor_real` trae a quien inició la vista.
+ */
 function usuario_actual(): ?array
 {
     static $cache = false;
@@ -184,16 +206,51 @@ function usuario_actual(): ?array
     if ($token === null) {
         return $cache = null;
     }
-    $u = fila(
-        'SELECT u.id, u.nombre, u.correo, u.rol, s.id AS sesion_id, s.ultimo_uso
-         FROM sesion s JOIN usuario u ON u.id = s.usuario_id AND u.estado = \'activo\'
-         WHERE s.token_hash = ? AND s.expira_en > UTC_TIMESTAMP() LIMIT 1',
+    $s = fila(
+        'SELECT id, usuario_id, viendo_como_id, ultimo_uso FROM sesion WHERE token_hash = ? AND expira_en > UTC_TIMESTAMP() LIMIT 1',
         [hash('sha256', $token)]
     );
-    if ($u !== null && strtotime($u['ultimo_uso'] . ' UTC') < time() - 300) {
-        ejecutar('UPDATE sesion SET ultimo_uso = UTC_TIMESTAMP() WHERE id = ?', [$u['sesion_id']]);
+    $u = $s === null ? null : cargar_usuario((int) $s['usuario_id']);
+    if ($u === null) {
+        return $cache = null;
+    }
+    if (strtotime($s['ultimo_uso'] . ' UTC') < time() - 300) {
+        ejecutar('UPDATE sesion SET ultimo_uso = UTC_TIMESTAMP() WHERE id = ?', [$s['id']]);
+    }
+    $u['sesion_id'] = (int) $s['id'];
+    $u['solo_lectura'] = false;
+    $u['actor_real'] = null;
+    if ($s['viendo_como_id'] !== null) {
+        $visto = cargar_usuario((int) $s['viendo_como_id']);
+        if ($visto === null) {
+            // La cuenta vista ya no está activa: la vista termina sola.
+            ejecutar('UPDATE sesion SET viendo_como_id = NULL WHERE id = ?', [$s['id']]);
+        } else {
+            $visto['sesion_id'] = $u['sesion_id'];
+            $visto['solo_lectura'] = true;
+            $visto['actor_real'] = ['id' => $u['id'], 'nombre' => $u['nombre'], 'rol' => $u['rol_nombre']];
+            $visto['debe_cambiar_clave'] = $u['debe_cambiar_clave'];
+            $u = $visto;
+        }
     }
     return $cache = $u;
+}
+
+/** Quien hizo de verdad la petición: con "ver como", la cuenta de Coordinación y no la vista. */
+function actor_real_id(): ?int
+{
+    $u = usuario_actual();
+    return $u === null ? null : (int) ($u['actor_real']['id'] ?? $u['id']);
+}
+
+function clave_temporal(): string
+{
+    $alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    $clave = '';
+    for ($i = 0; $i < 12; $i++) {
+        $clave .= $alfabeto[random_int(0, strlen($alfabeto) - 1)];
+    }
+    return $clave;
 }
 
 function crear_sesion(int $usuario_id): void
@@ -238,23 +295,58 @@ function exigir_sesion(): array
 /** 403 que no revela si el registro existe; el intento queda en la bitácora. */
 function denegar(string $detalle = ''): never
 {
-    $u = usuario_actual();
-    registrar_bitacora('acceso', null, 'acceso_denegado', null, null, trim(($_SERVER['REQUEST_METHOD'] ?? '') . ' ' . ($_SERVER['REQUEST_URI'] ?? '') . ' ' . $detalle), $u['id'] ?? null);
+    registrar_bitacora('acceso', null, 'acceso_denegado', null, null, trim(($_SERVER['REQUEST_METHOD'] ?? '') . ' ' . ($_SERVER['REQUEST_URI'] ?? '') . ' ' . $detalle));
     error_http(403, 'No tienes permiso para esta acción.');
 }
 
 function exigir_permiso(string $recurso, string $accion): array
 {
     $u = exigir_sesion();
-    if (!tiene_permiso($u['rol'], $recurso, $accion)) {
+    if (!tiene_permiso($u, $recurso, $accion)) {
         denegar("($recurso:$accion)");
     }
     return $u;
 }
 
+/** Administración (usuarios, roles, ver como): además del permiso, solo el rol del sistema coordinacion. */
+function exigir_admin(string $recurso, string $accion): array
+{
+    $u = exigir_permiso($recurso, $accion);
+    if (!$u['es_sistema'] || $u['base'] !== 'coordinacion') {
+        denegar("($recurso:$accion, solo el rol del sistema coordinacion)");
+    }
+    return $u;
+}
+
+/**
+ * Guardia de toda petición con sesión, ya resuelta la ruta: con cambio de contraseña pendiente solo se
+ * permite ver la sesión, cambiarla y salir; en "ver como" solo se lee (y se sale). Los latidos de
+ * tiempo activo de una vista se descartan con éxito para no ensuciar la medición.
+ */
+function guardia_de_peticion(string $metodo, string $ruta): void
+{
+    // Con una cookie vieja, el inicio de sesión no puede quedar bloqueado ni cargar la cuenta anterior.
+    $u = $ruta === '/login' ? null : usuario_actual();
+    if ($u === null) {
+        return;
+    }
+    $permitida_con_clave_pendiente = ($metodo === 'GET' && $ruta === '/sesion') || ($metodo === 'PUT' && $ruta === '/mi-clave') || ($metodo === 'POST' && $ruta === '/logout');
+    if ($u['debe_cambiar_clave'] && !$permitida_con_clave_pendiente) {
+        error_http(403, 'Tu contraseña es temporal. Cámbiala en Mi contraseña antes de seguir.');
+    }
+    if ($u['solo_lectura'] && $metodo !== 'GET') {
+        if ($metodo === 'POST' && $ruta === '/metricas/tiempo') {
+            responder(200, ['segundos_aceptados' => 0]);
+        }
+        if (!($metodo === 'POST' && in_array($ruta, ['/ver-como/salir', '/logout'], true))) {
+            denegar('(vista de solo lectura)');
+        }
+    }
+}
+
 function registrar_bitacora(string $entidad, ?int $registro_id, string $accion, ?array $antes, ?array $despues, ?string $motivo = null, ?int $usuario_id = null): void
 {
-    $uid = $usuario_id ?? (usuario_actual()['id'] ?? null);
+    $uid = $usuario_id ?? actor_real_id();
     insertar('bitacora_cambio', [
         'entidad' => $entidad,
         'registro_id' => $registro_id,

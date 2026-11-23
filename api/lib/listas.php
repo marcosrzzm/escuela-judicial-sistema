@@ -18,10 +18,10 @@ function ruta_grupos(): never
         $donde[] = 'g.periodo_id = ?';
         $p[] = $periodo;
     }
-    if ($u['rol'] === 'docente') {
+    if ($u['base'] === 'docente') {
         $donde[] = 'EXISTS (SELECT 1 FROM asignacion_docente a WHERE a.grupo_id = g.id AND a.docente_id = ?)';
         $p[] = $u['id'];
-    } elseif ($u['rol'] === 'auxiliar') {
+    } elseif ($u['base'] === 'auxiliar') {
         $donde[] = 'EXISTS (SELECT 1 FROM asignacion_auxiliar x WHERE x.grupo_id = g.id AND x.usuario_id = ?)';
         $p[] = $u['id'];
     }
@@ -47,7 +47,7 @@ function ruta_lista_grupo(array $a): never
          FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id WHERE g.id = ?',
         [$gid]
     );
-    $estados = $u['rol'] === 'coordinacion' ? '' : ' AND i.estado = \'activa\'';
+    $estados = $u['base'] === 'coordinacion' ? '' : ' AND i.estado = \'activa\'';
     $alumnos = filas(
         'SELECT i.id AS inscripcion_id, al.id AS alumno_id, al.identificador, al.nombre, i.estado, i.fecha_alta, i.fecha_baja, i.observacion
          FROM inscripcion_grupo i JOIN alumno al ON al.id = i.alumno_id
@@ -55,8 +55,8 @@ function ruta_lista_grupo(array $a): never
         [$gid]
     );
     $asig = [];
-    if (tiene_permiso($u['rol'], 'asignacion_docente', 'ver')) {
-        $extra = $u['rol'] === 'docente' ? ' AND a.docente_id = ' . (int) $u['id'] : '';
+    if (tiene_permiso($u, 'asignacion_docente', 'ver')) {
+        $extra = $u['base'] === 'docente' ? ' AND a.docente_id = ' . (int) $u['id'] : '';
         $asig = filas(
             'SELECT a.id, m.nombre AS materia, d.nombre AS docente
              FROM asignacion_docente a JOIN materia m ON m.id = a.materia_id JOIN usuario d ON d.id = a.docente_id
@@ -93,7 +93,7 @@ function ruta_alta_inscripcion(array $a): never
                 error_http(404, 'Ese alumno ya no existe.');
             }
         } else {
-            if (!tiene_permiso($u['rol'], 'alumno', 'crear')) {
+            if (!tiene_permiso($u, 'alumno', 'crear')) {
                 denegar('alumno:crear');
             }
             $ident = texto($d, 'identificador', 30, 'La matrícula');

@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 function ve_todo(array $u): bool
 {
-    return in_array($u['rol'], ['coordinacion', 'direccion'], true);
+    return in_array($u['base'], ['coordinacion', 'direccion'], true);
 }
 
 /** Puede ver la lista de un grupo (inscripcion_grupo "de sus grupos"). */
@@ -16,7 +16,7 @@ function grupo_en_alcance(array $u, int $grupo_id): bool
     if (!$existe) {
         return false;
     }
-    return match ($u['rol']) {
+    return match ($u['base']) {
         'coordinacion', 'direccion' => true,
         'docente' => fila('SELECT id FROM asignacion_docente WHERE grupo_id = ? AND docente_id = ? LIMIT 1', [$grupo_id, $u['id']]) !== null,
         'auxiliar' => fila('SELECT id FROM asignacion_auxiliar WHERE grupo_id = ? AND usuario_id = ?', [$grupo_id, $u['id']]) !== null,
@@ -50,7 +50,7 @@ function asignacion_en_alcance(array $u, int $id): ?array
     if (ve_todo($u)) {
         return $a;
     }
-    return $u['rol'] === 'docente' && (int) $a['docente_id'] === (int) $u['id'] ? $a : null;
+    return $u['base'] === 'docente' && (int) $a['docente_id'] === (int) $u['id'] ? $a : null;
 }
 
 function lista_vigente(int $grupo_id): array

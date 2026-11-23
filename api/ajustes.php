@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 /**
+ * Mientras no exista autorización escrita de la Escuela para usar datos reales (especificación, secciones
+ * 8 y 10.5) la franja "Prototipo · datos ficticios" sigue encendida. Se apaga cambiando a false.
+ */
+const DATOS_FICTICIOS = true;
+
+/**
  * Lee la configuración de un archivo fuera de la carpeta pública.
  * Orden de búsqueda: variable EJ_CONFIG, el .env de la raíz del repo (local) y
  * ej-config.env un nivel arriba de la carpeta pública (hosting).

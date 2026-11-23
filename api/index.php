@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** Único punto de entrada de la API: aplica las cabeceras, revisa la petición y despacha a rutas.php. */
 
 require __DIR__ . '/nucleo.php';
-foreach (['alcance', 'sesion', 'listas', 'entregas', 'cierres', 'metricas'] as $archivo) {
+foreach (['alcance', 'sesion', 'listas', 'entregas', 'cierres', 'metricas', 'administracion'] as $archivo) {
     require __DIR__ . "/lib/$archivo.php";
 }
 
@@ -38,6 +38,7 @@ foreach (require __DIR__ . '/rutas.php' as [$m, $patron, $funcion]) {
     if ($m !== $metodo) {
         continue;
     }
+    guardia_de_peticion($metodo, $ruta);
     $funcion(array_filter($coincidencias, 'is_string', ARRAY_FILTER_USE_KEY));
 }
 

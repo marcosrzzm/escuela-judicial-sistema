@@ -11,13 +11,15 @@ declare(strict_types=1);
  */
 const MATRIZ_PERMISOS = [
     'coordinacion' => [
-        'periodo' => ['ver'],
-        'grupo' => ['ver'],
-        'alumno' => ['ver', 'crear'],
+        'periodo' => ['ver', 'crear', 'modificar'],
+        'grupo' => ['ver', 'crear', 'modificar'],
+        'alumno' => ['ver', 'crear', 'modificar'],
         'inscripcion_grupo' => ['ver', 'crear', 'modificar'],
-        'usuario' => ['ver'],
-        'materia' => ['ver'],
-        'asignacion_docente' => ['ver'],
+        'usuario' => ['ver', 'crear', 'modificar'],
+        'rol' => ['ver', 'crear', 'modificar'],
+        'ver_como' => ['ver'],
+        'materia' => ['ver', 'crear', 'modificar'],
+        'asignacion_docente' => ['ver', 'crear', 'modificar'],
         'decision_evaluacion' => ['ver', 'crear'],
         'entrega_calificaciones' => ['ver', 'crear', 'modificar', 'aceptar', 'devolver', 'reabrir'],
         'calificacion' => ['ver'],
@@ -74,19 +76,42 @@ const MATRIZ_PERMISOS = [
     ],
 ];
 
-function tiene_permiso(string $rol, string $recurso, string $accion): bool
-{
-    return in_array($accion, MATRIZ_PERMISOS[$rol][$recurso] ?? [], true);
-}
+/**
+ * Lo que ningún rol personalizado puede tener (sección 10.2): administración de usuarios y de roles,
+ * y la vista como otro usuario. Solo el rol del sistema coordinacion los trae de la matriz.
+ */
+const PROHIBIDOS_EN_ROL_PERSONALIZADO = ['usuario:crear', 'usuario:modificar', 'rol:crear', 'rol:modificar', 'ver_como:ver'];
 
-/** Lista "recurso:accion" que se manda al navegador solo para decidir qué mostrar. */
-function permisos_del_rol(string $rol): array
+/** Lista "recurso:accion" de la matriz para un rol base. */
+function permisos_del_rol(string $base): array
 {
     $lista = [];
-    foreach (MATRIZ_PERMISOS[$rol] ?? [] as $recurso => $acciones) {
+    foreach (MATRIZ_PERMISOS[$base] ?? [] as $recurso => $acciones) {
         foreach ($acciones as $accion) {
             $lista[] = "$recurso:$accion";
         }
     }
     return $lista;
+}
+
+/** Techo de un rol personalizado con esa base: lo de la matriz menos lo prohibido. */
+function techo_de_base(string $base): array
+{
+    return array_values(array_diff(permisos_del_rol($base), PROHIBIDOS_EN_ROL_PERSONALIZADO));
+}
+
+/** Un rol del sistema usa la matriz; uno personalizado, su lista guardada recortada al techo de su base. */
+function permisos_de_rol(string $base, bool $es_sistema, ?string $json): array
+{
+    if ($es_sistema) {
+        return permisos_del_rol($base);
+    }
+    $guardados = json_decode((string) $json, true);
+    return array_values(array_intersect(is_array($guardados) ? $guardados : [], techo_de_base($base)));
+}
+
+/** Permiso del usuario efectivo de la petición (con "ver como", el de la cuenta vista). */
+function tiene_permiso(array $u, string $recurso, string $accion): bool
+{
+    return in_array("$recurso:$accion", $u['permisos'], true);
 }
