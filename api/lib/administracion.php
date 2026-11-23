@@ -39,13 +39,18 @@ function usuario_para_bitacora(array $u): array
 
 function ruta_usuarios(): never
 {
-    exigir_admin('usuario', 'ver');
+    $u = exigir_permiso('usuario', 'ver');
+    // Dirección consulta las cuentas pero no ve sus correos: esos solo son de Coordinación (especificación, 10.7).
+    $con_correo = $u['es_sistema'] && $u['base'] === 'coordinacion';
     $donde = ['1 = 1'];
     $p = [];
     $q = trim((string) ($_GET['q'] ?? ''));
     if ($q !== '') {
-        $donde[] = '(u.nombre LIKE ? OR u.correo LIKE ?)';
-        array_push($p, "%$q%", "%$q%");
+        $donde[] = $con_correo ? '(u.nombre LIKE ? OR u.correo LIKE ?)' : 'u.nombre LIKE ?';
+        array_push($p, "%$q%");
+        if ($con_correo) {
+            $p[] = "%$q%";
+        }
     }
     foreach (['rol' => 'u.rol', 'estado' => 'u.estado'] as $param => $col) {
         if (isset($_GET[$param]) && $_GET[$param] !== '' && $_GET[$param] !== 'todos') {
@@ -59,6 +64,9 @@ function ruta_usuarios(): never
         $p
     );
     foreach ($filas as &$f) {
+        if (!$con_correo) {
+            $f['correo'] = null;
+        }
         $f['debe_cambiar_clave'] = (int) $f['debe_cambiar_clave'] === 1;
         $f['grupo_ids'] = $f['base'] === 'auxiliar'
             ? array_map('intval', array_column(filas('SELECT grupo_id FROM asignacion_auxiliar WHERE usuario_id = ? ORDER BY grupo_id', [$f['id']]), 'grupo_id'))
@@ -202,7 +210,7 @@ function ruta_grupos_auxiliar(array $a): never
 
 function ruta_roles(): never
 {
-    exigir_admin('rol', 'ver');
+    exigir_permiso('rol', 'ver');
     $filas = filas(
         'SELECT r.id, r.clave, r.nombre, r.base, r.permisos, r.es_sistema, r.estado,
                 (SELECT COUNT(*) FROM usuario u WHERE u.rol = r.clave AND u.estado = \'activo\') AS usuarios_activos

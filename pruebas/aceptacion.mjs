@@ -198,7 +198,7 @@ ca('CA-09', 'Carga externa registra recepción, carga y discrepancia; no puede t
   igual((await coord.get(`/grupos/${g1.id}/cierre`)).datos.cierres[0].estado, 'aprobado', 'El cierre cambió')
 })
 
-ca('CA-10', 'Devolver con motivo: Coordinación ve la bitácora completa y Dirección solo quién y cuándo', async () => {
+ca('CA-10', 'Devolver con motivo: Coordinación y Dirección ven la bitácora completa, con motivo y valores antes y después', async () => {
   const todas = listaG2.map((a) => ({ alumno_id: a.alumno_id, valor: 8.0 }))
   igual((await docB.post(`/entregas/${ctx.entregaB}/enviar`, { calificaciones: todas })).estado, 200, 'Docente B envía')
   const motivo = 'Falta sustento en la calificación de un alumno'
@@ -210,9 +210,9 @@ ca('CA-10', 'Devolver con motivo: Coordinación ve la bitácora completa y Direc
   afirmar(Boolean(f.fecha), 'Falta la fecha')
   const g = (await dir.get('/bitacora?entidad=entrega_calificaciones&accion=devolver')).datos.filas[0]
   afirmar(g, 'Dirección no ve la acción')
-  igual([g.usuario, g.motivo, g.antes, g.despues], ['Lic. Marina Solís', null, null, null], 'Dirección no debe ver motivo ni valores')
+  igual([g.usuario, g.motivo, g.antes.estado, g.despues.estado], ['Lic. Marina Solís', motivo, 'enviada', 'devuelta'], 'Dirección ve el mismo detalle que Coordinación')
   afirmar(Boolean(g.fecha), 'Falta la fecha para Dirección')
-  igual((await dir.get('/bitacora?q=Falta%20sustento')).datos.filas.length, 0, 'Dirección no busca dentro de los motivos')
+  afirmar((await dir.get('/bitacora?q=Falta%20sustento')).datos.filas.length > 0, 'Dirección no busca dentro de los motivos')
 })
 
 ca('CA-11', 'La captura excepcional suma campos recapturados y la línea base aparece junto', async () => {
@@ -318,7 +318,7 @@ ca('CA-16', 'Rol "Consulta de Dirección" de solo ver: ve Autorizaciones y Bitá
   igual((await c.get('/bitacora')).estado, 200, 'Ver Bitácora')
   igual((await c.put('/decisiones/1/resolver', { resolucion: 'autorizada', motivo: 'x' })).estado, 403, 'Resolver una decisión')
   igual((await c.put('/cierres/1/resolver', { resolucion: 'aprobar', motivo: 'x' })).estado, 403, 'Resolver un cierre')
-  igual((await c.get('/usuarios')).estado, 403, 'Un rol personalizado no administra usuarios')
+  igual((await c.post('/usuarios', { nombre: 'X', correo: 'x@prueba.local', rol: 'docente' })).estado, 403, 'Un rol personalizado no administra usuarios')
   // Cambiar los permisos de un rol cierra las sesiones de sus cuentas.
   const quitar = await coord.put(`/roles/${rol.datos.id}`, { nombre: 'Consulta de Dirección', estado: 'activo', permisos: solo_ver.filter((p) => p !== 'bitacora_cambio:ver') })
   igual(quitar.estado, 200, 'Editar el rol')
@@ -447,7 +447,7 @@ ca('CA-20', 'Catálogos y CSV: periodo, materia y grupo nuevos, asignación al d
   igual((await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: ctx.docenteNuevo.id, motivo: 'Prueba' })).estado, 409, 'Cambiar docente en un periodo cerrado')
 })
 
-ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su motivo ni su evidencia; Auxiliar, Carga externa y Dirección no ven la decisión', async () => {
+ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su motivo ni su evidencia; Auxiliar y Carga externa no ven la decisión; Dirección la ve completa', async () => {
   const alumno = listaG1[0]
   const motivo = 'Reporte médico confidencial del alumno'
   const evidencia = 'Expediente interno 4471'
@@ -474,10 +474,13 @@ ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su mot
   const deB = JSON.stringify((await b.get(`/asignaciones/${asigB.id}`)).datos)
   afirmar(deB.includes('Falta sustento en la calificación de un alumno'), 'Docente B no ve el motivo de la devolución de su entrega')
   // Quien no es Coordinación ni el docente no ve la decisión.
-  for (const [quien, cliente] of [['Auxiliar', aux], ['Carga externa', carga], ['Dirección', dir]]) {
+  for (const [quien, cliente] of [['Auxiliar', aux], ['Carga externa', carga]]) {
     igual((await cliente.get(`/asignaciones/${asigA.id}`)).estado, 403, `${quien} pide la asignación`)
-    igual((await cliente.get(`/grupos/${g1.id}/lista`)).estado === 200 && quien !== 'Auxiliar', false, `${quien} pide la lista`)
   }
+  igual((await carga.get(`/grupos/${g1.id}/lista`)).estado, 403, 'Carga externa pide la lista')
+  // Dirección ve todo lo que ve Coordinación, en modo consulta.
+  const deDir = JSON.stringify((await dir.get(`/asignaciones/${asigA.id}`)).datos)
+  afirmar(deDir.includes(motivo) && deDir.includes(evidencia), 'Dirección no ve el motivo y la evidencia')
   // El Auxiliar ve de la lista solo nombre y matrícula.
   const lista = (await aux.get(`/grupos/${g1.id}/lista`)).datos
   afirmar(lista.alumnos.length > 0 && lista.alumnos.every((a) => JSON.stringify(Object.keys(a).sort()) === JSON.stringify(['identificador', 'nombre'])), 'El Auxiliar ve más que nombre y matrícula')
@@ -490,7 +493,7 @@ ca('CA-23', 'El docente ve el resultado del derecho a evaluación pero no su mot
   afirmar(!JSON.stringify((await dir.get('/autorizaciones')).datos).includes(motivo), 'Dirección ve el motivo de un caso que no le enviaron')
 })
 
-ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente solo encuentra a sus alumnos; Dirección no ve historiales', async () => {
+ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente solo encuentra a sus alumnos; Dirección lee historiales pero no escribe', async () => {
   // Todas las rutas de rutas.php, menos las públicas, responden 401 sin sesión y con Cache-Control: no-store.
   const publicas = new Set(['POST /login', 'GET /ajustes-publicos', 'GET /acceso/validar', 'POST /acceso/clave', 'POST /olvide-clave'])
   const rutas = [...readFileSync(join(raiz, 'api/rutas.php'), 'utf8').matchAll(/\['(GET|POST|PUT)', '([^']+)'/g)].map((m) => [m[1], m[2].replace('{id}', '1')])
@@ -513,10 +516,17 @@ ca('CA-24', 'Sin sesión todo responde 401 sin datos; el buscador del docente so
   igual(hallado.map((a) => a.identificador), [propio.identificador], 'El docente no encuentra a su alumno')
   igual(Object.keys(hallado[0]).sort(), ['id', 'identificador', 'nombre'], 'Campos del buscador del docente')
   igual((await docA.get(`/alumnos/${propio.alumno_id}/historial`)).estado, 403, 'El docente pide un historial')
-  igual((await dir.get(`/alumnos/${propio.alumno_id}/historial`)).estado, 403, 'Dirección pide un historial')
-  igual((await dir.get('/alumnos')).estado, 403, 'Dirección pide alumnos')
-  igual((await dir.get(`/grupos/${g1.id}/lista`)).estado, 403, 'Dirección pide una lista')
-  igual((await dir.get('/lotes')).estado, 403, 'Dirección pide lotes')
+  igual((await dir.get(`/alumnos/${propio.alumno_id}/historial`)).estado, 200, 'Dirección lee un historial')
+  igual((await dir.get('/alumnos')).estado, 200, 'Dirección lee alumnos')
+  igual((await dir.get(`/grupos/${g1.id}/lista`)).estado, 200, 'Dirección lee una lista')
+  igual((await dir.get('/lotes')).estado, 200, 'Dirección lee lotes')
+  // En modo consulta: no escribe nada fuera de autorizar.
+  igual((await dir.post(`/grupos/${g1.id}/inscripciones`, { identificador: 'X-1', nombre: 'X', observacion: 'x' })).estado, 403, 'Dirección da de alta un alumno')
+  igual((await dir.post('/materias', { clave: 'DIR', nombre: 'Prueba' })).estado, 403, 'Dirección crea una materia')
+  igual((await dir.post('/usuarios', { nombre: 'X', correo: 'x@prueba.local', rol: 'docente' })).estado, 403, 'Dirección crea una cuenta')
+  igual((await dir.post(`/ver-como/${propio.alumno_id}`)).estado, 403, 'Dirección usa ver como')
+  const cuentasDir = (await dir.get('/usuarios')).datos.filas
+  afirmar(cuentasDir.length > 0 && cuentasDir.every((u) => u.correo === null), 'Dirección ve correos de las cuentas')
   igual((await aux.get('/usuarios')).estado, 403, 'Auxiliar pide cuentas')
   igual((await carga.get('/alumnos')).estado, 403, 'Carga externa pide alumnos')
   const lotes = (await carga.get('/lotes')).datos.filas

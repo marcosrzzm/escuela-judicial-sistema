@@ -293,10 +293,12 @@ function DetalleAlumno({ id }: { id: number }) {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-semibold text-ink">Pendientes</h3>
-          <Button type="button" variant="outline" size="sm" onClick={() => setNuevo(true)}>
-            <CirclePlus strokeWidth={2.4} aria-hidden="true" />
-            Agregar pendiente
-          </Button>
+          {puede('pendiente_academico', 'crear') ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setNuevo(true)}>
+              <CirclePlus strokeWidth={2.4} aria-hidden="true" />
+              Agregar pendiente
+            </Button>
+          ) : null}
         </div>
         {d.pendientes.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line-strong bg-paper-2 px-4 py-6 text-sm text-ink-3">
@@ -323,7 +325,7 @@ function DetalleAlumno({ id }: { id: number }) {
                 {p.resolucion ? (
                   <span className="w-full text-ink-3">Resolución: {p.resolucion}</span>
                 ) : null}
-                {p.estado === 'abierto' ? (
+                {p.estado === 'abierto' && puede('pendiente_academico', 'modificar') ? (
                   <Button
                     type="button"
                     size="sm"

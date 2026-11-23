@@ -42,14 +42,25 @@ const MATRIZ_PERMISOS = [
         'entrega_calificaciones' => ['ver', 'crear', 'modificar'],
         'calificacion' => ['ver', 'crear', 'modificar'],
     ],
-    // Dirección solo ve el detalle de los casos que se le envían a autorizar (especificación, 10.7): nada de listas,
-    // historiales, calificaciones, lotes ni boletas fuera de ellos.
+    // Dirección ve todo lo que ve Coordinación, en modo consulta (especificación, 10.7); solo escribe para
+    // autorizar los casos que se le envían. Usuarios y roles: solo ver.
     'direccion' => [
         'periodo' => ['ver'],
         'grupo' => ['ver'],
+        'alumno' => ['ver'],
+        'inscripcion_grupo' => ['ver'],
+        'usuario' => ['ver'],
+        'rol' => ['ver'],
         'materia' => ['ver'],
+        'asignacion_docente' => ['ver'],
         'decision_evaluacion' => ['ver', 'modificar'],
+        'entrega_calificaciones' => ['ver'],
+        'calificacion' => ['ver'],
+        'pendiente_academico' => ['ver'],
         'cierre' => ['ver', 'modificar'],
+        'documento_academico' => ['ver'],
+        'lote_entrega' => ['ver'],
+        'registro_carga_externa' => ['ver'],
         'bitacora_cambio' => ['ver'],
         'metrica_caso' => ['ver'],
     ],

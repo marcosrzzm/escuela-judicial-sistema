@@ -23,8 +23,8 @@ export function Bitacora() {
   const q = params.get('q') ?? ''
   const entidad = params.get('entidad') ?? 'todos'
   const pagina = Number(params.get('pagina')) || 1
-  // Solo Coordinación ve motivos y valores; los demás roles ven quién hizo qué y cuándo.
-  const completa = useSesion().sesion?.base === 'coordinacion'
+  // Coordinación y Dirección ven motivos y valores.
+  const completa = ['coordinacion', 'direccion'].includes(useSesion().sesion?.base ?? '')
   const [evento, setEvento] = useState<EventoBitacora | null>(null)
   const ruta = `/bitacora?pagina=${pagina}&entidad=${encodeURIComponent(entidad)}&q=${encodeURIComponent(q)}`
   const b = useDatos<PaginaBitacora>(ruta)

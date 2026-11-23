@@ -31,6 +31,7 @@ import {
   type CierreGrupo,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
+import { useSesion } from '@/lib/sesion'
 import { fechaHora, resolverZod } from '@/lib/formulario'
 import { useTiempoActivo } from '@/lib/useTiempoActivo'
 
@@ -199,6 +200,8 @@ function Traspaso({ c }: { c: Cierre }) {
 }
 
 export function CierreLote() {
+  // Dirección consulta el cierre; preparar, aprobar y generar son de Coordinación.
+  const edita = useSesion().puede('cierre', 'crear')
   const sel = useSeleccionGrupo()
   const grupoId = sel.grupo?.id ?? null
   useTiempoActivo('cierre', grupoId)
@@ -341,19 +344,19 @@ export function CierreLote() {
                   <p className="text-sm text-alerta">Dirección lo devolvió: {vigente.motivo}</p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
-                  {vigente.estado === 'preparado' && !vigente.requiere_autorizacion ? (
+                  {edita && vigente.estado === 'preparado' && !vigente.requiere_autorizacion ? (
                     <Button type="button" onClick={() => setConfirmar('aprobar')}>
                       <ShieldCheck strokeWidth={2.4} aria-hidden="true" />
                       Aprobar cierre
                     </Button>
                   ) : null}
-                  {vigente.estado === 'preparado' && vigente.requiere_autorizacion ? (
+                  {edita && vigente.estado === 'preparado' && vigente.requiere_autorizacion ? (
                     <Button type="button" onClick={() => setConfirmar('autorizacion')}>
                       <Send strokeWidth={2.4} aria-hidden="true" />
                       Enviar a Dirección
                     </Button>
                   ) : null}
-                  {vigente.estado === 'aprobado' && !vigente.lote_id ? (
+                  {edita && vigente.estado === 'aprobado' && !vigente.lote_id ? (
                     <Button type="button" onClick={() => setConfirmar('lote')}>
                       <PackageCheck strokeWidth={2.4} aria-hidden="true" />
                       Generar boletas y lote
@@ -375,7 +378,7 @@ export function CierreLote() {
                       </Button>
                     </>
                   ) : null}
-                  {['aprobado', 'devuelto'].includes(vigente.estado) ? (
+                  {edita && ['aprobado', 'devuelto'].includes(vigente.estado) ? (
                     <Button type="button" variant="outline" onClick={() => setPreparar(true)}>
                       Preparar versión nueva
                     </Button>
@@ -391,9 +394,11 @@ export function CierreLote() {
                   El cierre fija las calificaciones aceptadas del grupo. De él salen las boletas y
                   el lote para Carga externa.
                 </p>
-                <Button type="button" onClick={() => setPreparar(true)}>
-                  Preparar cierre
-                </Button>
+                {edita ? (
+                  <Button type="button" onClick={() => setPreparar(true)}>
+                    Preparar cierre
+                  </Button>
+                ) : null}
               </div>
             )}
             {vigente?.lote_id ? <Traspaso c={vigente} /> : null}

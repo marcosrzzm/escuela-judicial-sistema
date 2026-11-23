@@ -140,8 +140,8 @@ function ruta_tiempo(): never
 function ruta_bitacora(): never
 {
     $u = exigir_permiso('bitacora_cambio', 'ver');
-    // Fuera de Coordinación la bitácora dice quién hizo qué y cuándo, sin motivos ni valores (especificación, 10.7).
-    $completa = $u['base'] === 'coordinacion';
+    // Coordinación y Dirección ven la bitácora completa; los demás roles no tienen acceso (especificación, 10.7).
+    $completa = ve_todo($u);
     $donde = ['1 = 1'];
     $p = [];
     foreach (['entidad' => 'b.entidad', 'accion' => 'b.accion'] as $param => $col) {

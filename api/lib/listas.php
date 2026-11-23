@@ -48,7 +48,7 @@ function ruta_lista_grupo(array $a): never
         [$gid]
     );
     // Fuera de Coordinación solo se ve la lista vigente, y de cada alumno nombre y matrícula (especificación, 10.7).
-    $coordinacion = $u['base'] === 'coordinacion';
+    $coordinacion = ve_todo($u);
     $alumnos = $coordinacion
         ? filas(
             'SELECT i.id AS inscripcion_id, al.id AS alumno_id, al.identificador, al.nombre, i.estado, i.fecha_alta, i.fecha_baja, i.observacion
@@ -160,7 +160,7 @@ function ruta_alumnos(): never
         $donde = '(al.nombre LIKE ? OR al.identificador LIKE ?)';
         $p = ['%' . $q . '%', '%' . $q . '%'];
     }
-    if ($u['base'] !== 'coordinacion') {
+    if (!ve_todo($u)) {
         // Docente y Auxiliar solo encuentran alumnos con inscripción vigente en sus grupos; nada más que nombre y matrícula.
         $propios = match ($u['base']) {
             'docente' => 'SELECT 1 FROM inscripcion_grupo i JOIN asignacion_docente a ON a.grupo_id = i.grupo_id WHERE i.alumno_id = al.id AND i.estado = \'activa\' AND a.docente_id = ?',

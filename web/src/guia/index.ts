@@ -166,7 +166,7 @@ const GUIAS: Record<string, Guia> = {
   },
   '/bitacora': {
     titulo: 'Cómo se usa la Bitácora',
-    queEs: 'Quién hizo qué, cuándo y por qué, con los valores antes y después. Dirección ve solo quién y cuándo.',
+    queEs: 'Quién hizo qué, cuándo y por qué, con los valores antes y después.',
     pasos: [
       'Busca por usuario o motivo, o filtra por entidad.',
       'Toca un movimiento para ver el antes y el después.',

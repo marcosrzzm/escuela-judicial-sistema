@@ -11,6 +11,7 @@ const soloVerDireccion = {
 describe('navegación por base y permiso', () => {
   it('un rol personalizado con base Dirección ve solo lo que su permiso abre', () => {
     expect(areasVisibles(soloVerDireccion).map((a) => a.clave)).toEqual([
+      'cierre',
       'autorizaciones',
       'bitacora',
     ])

@@ -23,13 +23,13 @@ function decisiones_vigentes(int $asignacion_id): array
 }
 
 /**
- * Los motivos de una entrega son datos sensibles (especificación, 10.7): Coordinación ve todos; el docente solo
+ * Los motivos de una entrega son datos sensibles (especificación, 10.7): Coordinación y Dirección ven todos; el docente solo
  * el de la devolución de su propia entrega, nunca el de una reapertura.
  */
 function motivo_de_entrega(?string $motivo, string $estado): ?string
 {
     $u = usuario_actual();
-    return ($u !== null && $u['base'] === 'coordinacion') || $estado === 'devuelta' ? $motivo : null;
+    return ($u !== null && ve_todo($u)) || $estado === 'devuelta' ? $motivo : null;
 }
 
 function calificaciones_de(int $entrega_id): array
@@ -54,7 +54,7 @@ function entrega_completa(int $id): ?array
     }
     $e['captura_excepcional'] = (bool) $e['captura_excepcional'];
     $e['motivo'] = motivo_de_entrega($e['motivo'], (string) $e['estado']);
-    if ((usuario_actual()['base'] ?? '') !== 'coordinacion') {
+    if (!ve_todo(usuario_actual() ?? ['base' => ''])) {
         $e['motivo_captura'] = null;
     }
     $e['calificaciones'] = calificaciones_de($id);
@@ -122,7 +122,7 @@ function ruta_asignacion(array $a): never
         denegar('asignacion ' . (int) $a['id']);
     }
     $decisiones = decisiones_vigentes((int) $asig['id']);
-    $coordinacion = $u['base'] === 'coordinacion';
+    $coordinacion = ve_todo($u);
     $alumnos = array_map(static function (array $al) use ($decisiones, $coordinacion): array {
         $d = $decisiones[(int) $al['alumno_id']] ?? null;
         $al['decision'] = $d;

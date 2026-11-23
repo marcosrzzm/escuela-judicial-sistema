@@ -51,7 +51,7 @@ export const AREAS: Area[] = [
     descripcion: 'Lista vigente de cada grupo, altas y bajas.',
     icono: UsersRound,
     ruta: '/grupos',
-    roles: ['coordinacion'],
+    roles: ['coordinacion', 'direccion'],
     permiso: 'inscripcion_grupo:ver',
   },
   {
@@ -78,7 +78,7 @@ export const AREAS: Area[] = [
     descripcion: 'Materias por periodo y pendientes de cada alumno.',
     icono: GraduationCap,
     ruta: '/historial',
-    roles: ['coordinacion'],
+    roles: ['coordinacion', 'direccion'],
     permiso: 'pendiente_academico:ver',
   },
   {
@@ -87,7 +87,7 @@ export const AREAS: Area[] = [
     descripcion: 'Preparar el cierre, generar boletas y lote, ver el traspaso.',
     icono: PackageCheck,
     ruta: '/cierre',
-    roles: ['coordinacion'],
+    roles: ['coordinacion', 'direccion'],
     permiso: 'cierre:ver',
   },
   {
@@ -203,6 +203,12 @@ export function areaDeRuta(pathname: string): Area | null {
 /** Primera pantalla del menú de la cuenta: a donde cae después de entrar. */
 export function rutaInicial(cuenta: Cuenta): string {
   if (cuenta.debe_cambiar_clave) return '/mi-clave'
+  // Dirección empieza por lo que tiene que resolver.
+  if (
+    cuenta.base === 'direccion' &&
+    areasVisibles(cuenta).some((a) => a.clave === 'autorizaciones')
+  )
+    return '/autorizaciones'
   return areasVisibles(cuenta)[0]?.ruta ?? '/mi-clave'
 }
 
