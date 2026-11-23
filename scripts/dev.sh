@@ -15,7 +15,7 @@ fi
 
 echo "API en http://localhost:$API_PUERTO  ·  Web en http://localhost:$WEB_PUERTO"
 cd "$RAIZ"
-"$PHP_BIN" -S "localhost:$API_PUERTO" -t api api/index.php &
+"$PHP_BIN" -d post_max_size=20M -d upload_max_filesize=20M -d memory_limit=256M -S "localhost:$API_PUERTO" -t api api/index.php &
 PHP_PID=$!
 trap 'kill $PHP_PID 2>/dev/null' EXIT
 cd "$RAIZ/web" && npx vite --port "$WEB_PUERTO" --host localhost

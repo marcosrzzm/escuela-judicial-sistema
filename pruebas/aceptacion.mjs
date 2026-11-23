@@ -1,4 +1,4 @@
-// Criterios de aceptación CA-01 a CA-31 (especificación, sección 7) contra la API local.
+// Criterios de aceptación CA-01 a CA-31 (especificación, sección 7) y CA-32 a CA-46 (aula, sección 12.13) contra la API local.
 // Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
 // Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
 //   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
@@ -676,7 +676,7 @@ if (!REMOTO) {
     afirmar(h.alumno.id === valeria.alumno_id, 'Historial de otra persona')
     afirmar(!/motivo|evidencia/i.test(JSON.stringify([despues, h])), 'El alumno ve motivo o evidencia')
     afirmar(despues.tarjetas.every((t) => t.tipo === 'materia' && ['con_derecho', 'sin_derecho', 'pendiente', null].includes(t.derecho)), 'Forma del tablero del alumno')
-    igual(despues.por_hacer, [], 'El alumno no tiene Por hacer')
+    afirmar(despues.por_hacer.every((i) => i.tipo.startsWith('aula_')), 'El alumno tiene Por hacer de control escolar')
     const cal = (await alumno.get('/calendario')).datos.eventos
     afirmar(!cal.some((e) => e.tipo === 'entrega'), 'El alumno ve fechas de entrega de los docentes')
     // Coordinación lo ve igual con "Ver como".
@@ -847,6 +847,320 @@ if (!REMOTO) {
     const b = await bitacoraDe(['solicitud_creada', 'solicitud_autorizada', 'solicitud_rechazada', 'restablecer_enviado', 'restablecimiento_usado'])
     const todo = JSON.stringify(b)
     afirmar(!todo.includes(enlaces[0]) && !todo.includes('Clave restablecida'), 'La bitácora guardó un token o una contraseña')
+  })
+}
+
+
+// --- Aula (sección 12, CA-32 a CA-46) ---------------------------------------------------------------------
+// Solo local: usan cuentas de alumno creadas por invitación y ajustan una hora en la base para el límite del examen.
+if (!REMOTO) {
+  const ASIG = asigA.id
+  const bytesPdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n')
+  const subir = (c, nombre, bytes, asignacion_id = ASIG) =>
+    c.post('/archivos', { nombre, contenido: Buffer.from(bytes).toString('base64'), asignacion_id })
+  const sql = (consulta) =>
+    execFileSync(join(env.MYSQL_DIR, 'bin/mysql'), ['--protocol=socket', `--socket=${join(raiz, 'seguridad/mysql.sock')}`, '-uroot', env.DB_NOMBRE, '-e', consulta], { stdio: 'pipe' })
+  /** Cuenta de alumno por el flujo real: Coordinación invita y la persona crea su contraseña con el enlace. */
+  async function cuentaDeAlumno(identificador, correo) {
+    const alumnoId = (await coord.get(`/alumnos?q=${identificador}`)).datos.filas.find((a) => a.identificador === identificador).id
+    igual((await coord.post(`/alumnos/${alumnoId}/cuenta`, { correo })).estado, 200, `Invitar a ${identificador}`)
+    const [token] = enlacesPara(correo)
+    afirmar(token, `No salió el correo de ${correo}`)
+    const persona = anonimo()
+    igual((await persona.post('/acceso/clave', { token, nueva: 'Clave del aula 2026', confirmacion: 'Clave del aula 2026' })).estado, 200, `Crear la contraseña de ${correo}`)
+    persona.id = (await persona.get('/sesion')).datos.id
+    return persona
+  }
+  const alumna = await entrar('alumno@prueba.local') // Valeria, POS-01
+  const mariana = await cuentaDeAlumno('EJ-2026-005', 'mariana.aula@prueba.local') // POS-01
+  const regina = await cuentaDeAlumno('EJ-2026-009', 'regina.aula@prueba.local') // POS-02
+  const idDocA = (await docA.get('/sesion')).datos.id
+  const idValeria = (await alumna.get('/sesion')).datos.id
+  // La contraseña de Docente B la dejó CA-22; su sesión anterior se cerró.
+  let docBVivo
+  const docBv = async () => (docBVivo ??= await entrar('docente.b@prueba.local', 'Clave restablecida 2026'))
+  const sinCorrecta = (datos, mensaje) => afirmar(!/"correcta"\s*:/.test(JSON.stringify(datos)), mensaje)
+
+  ca('CA-32', 'Módulo con una página en borrador y otra publicada: el alumno solo ve la publicada y la de borrador responde 404', async () => {
+    const m = await docA.post(`/cursos/${ASIG}/modulos`, { titulo: 'Módulo de prueba', publicado: true })
+    igual(m.estado, 200, 'Crear módulo')
+    const borrador = await docA.post(`/modulos/${m.datos.id}/elementos`, { tipo: 'pagina', titulo: 'Página en borrador', texto: 'Aún no', publicado: false })
+    const publicada = await docA.post(`/modulos/${m.datos.id}/elementos`, { tipo: 'pagina', titulo: 'Página publicada', texto: 'Ya', publicado: true })
+    igual([borrador.estado, publicada.estado], [200, 200], 'Crear páginas')
+    ctx.moduloPrueba = m.datos.id
+    ctx.elementoBorrador = borrador.datos.id
+    const visto = (await alumna.get(`/cursos/${ASIG}/modulos`)).datos.modulos.find((x) => x.id === m.datos.id)
+    igual(visto.elementos.map((e) => e.titulo), ['Página publicada'], 'Lo que ve el alumno')
+    igual((await alumna.get(`/elementos/${borrador.datos.id}`)).estado, 404, 'Página en borrador por API')
+    igual((await alumna.get(`/elementos/${publicada.datos.id}`)).estado, 200, 'Página publicada por API')
+    const docente = (await docA.get(`/cursos/${ASIG}/modulos`)).datos.modulos.find((x) => x.id === m.datos.id)
+    igual(docente.elementos.length, 2, 'El docente ve las dos')
+    igual((await (await docBv()).get(`/cursos/${ASIG}/modulos`)).estado, 403, 'Docente B en el curso de A')
+    igual((await (await docBv()).post(`/cursos/${ASIG}/modulos`, { titulo: 'X' })).estado, 403, 'Docente B crea módulo en el curso de A')
+    // Un módulo se archiva, no se borra, y deja bitácora.
+    const aparte = await docA.post(`/cursos/${ASIG}/modulos`, { titulo: 'Módulo por archivar' })
+    igual((await docA.put(`/modulos/${aparte.datos.id}`, { archivado: true })).estado, 200, 'Archivar módulo')
+    afirmar(!(await docA.get(`/cursos/${ASIG}/modulos`)).datos.modulos.some((x) => x.id === aparte.datos.id), 'El módulo archivado sigue a la vista')
+    afirmar((await coord.get('/bitacora?entidad=modulo&accion=archivar')).datos.filas.length > 0, 'Falta el archivado en la bitácora')
+  })
+
+  ca('CA-33', 'PDF en un módulo publicado: el alumno lo descarga; Docente B y Auxiliar reciben 403; .php o más de 10 MB responden 422', async () => {
+    const f = await subir(docA, 'Lectura 1.pdf', bytesPdf)
+    igual(f.estado, 200, 'Subir el PDF')
+    const el = await docA.post(`/modulos/${ctx.moduloPrueba}/elementos`, { tipo: 'archivo', titulo: 'Lectura 1', archivo_id: f.datos.id, publicado: true })
+    igual(el.estado, 200, 'Colgar el PDF del módulo')
+    ctx.pdfModulo = f.datos.id
+    const d = await alumna.get(`/archivos/${f.datos.id}`)
+    igual(d.estado, 200, 'El alumno descarga')
+    afirmar(/attachment/.test(d.cabeceras.get('content-disposition') ?? ''), 'Sin Content-Disposition: attachment')
+    igual(d.cabeceras.get('x-content-type-options'), 'nosniff', 'nosniff')
+    afirmar(/no-store/.test(d.cabeceras.get('cache-control') ?? ''), 'Sin no-store')
+    afirmar(typeof d.datos === 'string' && d.datos.startsWith('%PDF'), 'El contenido descargado no es el PDF')
+    igual((await (await docBv()).get(`/archivos/${f.datos.id}`)).estado, 403, 'Docente B descarga')
+    igual((await aux.get(`/archivos/${f.datos.id}`)).estado, 403, 'Auxiliar descarga')
+    igual((await carga.get(`/archivos/${f.datos.id}`)).estado, 403, 'Carga externa descarga')
+    igual((await subir(docA, 'malo.php', '<?php echo 1;')).estado, 422, 'Archivo .php')
+    igual((await subir(docA, 'disfrazado.pdf', '<?php echo 1;')).estado, 422, 'Contenido que no es PDF')
+    igual((await subir(docA, 'doble.php.txt.exe', 'hola')).estado, 422, 'Extensión final no permitida')
+    igual((await subir(docA, 'grande.pdf', Buffer.concat([bytesPdf, Buffer.alloc(10 * 1024 * 1024)]))).estado, 422, 'Más de 10 MB')
+    // Un archivo en un elemento en borrador no lo ve el alumno.
+    const g = await subir(docA, 'Borrador.pdf', bytesPdf)
+    await docA.post(`/modulos/${ctx.moduloPrueba}/elementos`, { tipo: 'archivo', titulo: 'Oculto', archivo_id: g.datos.id, publicado: false })
+    igual((await alumna.get(`/archivos/${g.datos.id}`)).estado, 403, 'El alumno descarga un archivo en borrador')
+    igual((await alumna.get('/archivos/99999')).estado, 403, 'Archivo inexistente')
+  })
+
+  ca('CA-34', 'Alumno entrega con archivo y reentrega: Docente A ve las dos versiones y califica la última; el alumno ve "entregada" sin puntos', async () => {
+    const f = await subir(alumna, 'Mi análisis.pdf', bytesPdf)
+    igual(f.estado, 200, 'El alumno sube su archivo')
+    const v1 = await alumna.post('/actividades/1/entregas', { texto: 'Primera versión', archivo_id: f.datos.id })
+    igual([v1.estado, v1.datos.version], [200, 1], 'Primera entrega')
+    const v2 = await alumna.post('/actividades/1/entregas', { texto: 'Segunda versión' })
+    igual([v2.estado, v2.datos.version], [200, 2], 'Segunda entrega')
+    ctx.entregaV1 = v1.datos.id
+    ctx.archivoEntrega = f.datos.id
+    igual((await alumna.post('/actividades/1/entregas', { texto: '' })).estado, 422, 'Entrega vacía')
+    const lista = (await docA.get('/actividades/1/entregas')).datos.alumnos.find((a) => a.nombre.startsWith('Valeria'))
+    igual(lista.versiones.map((v) => v.version), [1, 2], 'Versiones que ve el docente')
+    igual((await docA.get(`/archivos/${f.datos.id}`)).estado, 200, 'El docente descarga el archivo de la entrega')
+    afirmar(/entrega recibida/i.test(JSON.stringify((await avisosDe(docA)).filas)), 'El docente no recibió el aviso de entrega')
+    const cal = await docA.post('/actividades/1/calificar', { alumno_id: lista.alumno_id, detalle: [{ nivel: 0 }, { nivel: 1 }], comentario: 'Buen trabajo' })
+    igual([cal.estado, cal.datos.puntos], [200, 8], 'Calificar con la rúbrica')
+    ctx.valeriaAlumnoId = lista.alumno_id
+    const mio = (await alumna.get('/cursos/5/actividades?tipo=tarea')).datos.actividades[0].mio
+    igual([mio.estado, mio.calificacion], ['entregada', null], 'Lo que ve el alumno antes de publicar')
+    const cuerpo = JSON.stringify((await alumna.get('/actividades/1/entregas')).datos)
+    afirmar(!cuerpo.includes('Buen trabajo') && !/"puntos":8/.test(cuerpo), 'El alumno ve puntos o comentario sin publicar')
+    igual((await alumna.get('/cursos/5/calificaciones')).datos.actividades.find((x) => x.id === 1).calificacion, null, 'Calificaciones del alumno antes de publicar')
+  })
+
+  ca('CA-35', 'Otro alumno pide la entrega del primero por API: 403', async () => {
+    igual((await mariana.get(`/entregas-tarea/${ctx.entregaV1}`)).estado, 403, 'Otro alumno pide la entrega')
+    igual((await mariana.get(`/archivos/${ctx.archivoEntrega}`)).estado, 403, 'Otro alumno pide el archivo de la entrega')
+    igual((await mariana.get('/actividades/1/entregas')).datos.versiones, [], 'La lista del otro alumno no trae lo ajeno')
+    igual((await regina.get(`/entregas-tarea/${ctx.entregaV1}`)).estado, 403, 'Alumno de otro grupo pide la entrega')
+    igual((await alumna.get(`/entregas-tarea/${ctx.entregaV1}`)).estado, 200, 'El dueño sí')
+    igual((await (await docBv()).get(`/entregas-tarea/${ctx.entregaV1}`)).estado, 403, 'Docente B pide la entrega')
+  })
+
+  ca('CA-36', 'Docente A califica con rúbrica y publica: el alumno ve puntos, nivel por criterio y comentario; la bitácora guarda quién calificó', async () => {
+    const pub = await docA.put('/actividades/1/publicar-calificaciones')
+    igual(pub.estado, 200, 'Publicar calificaciones')
+    const c = (await alumna.get('/cursos/5/calificaciones')).datos.actividades.find((x) => x.id === 1).calificacion
+    igual(c.puntos, 8, 'Puntos')
+    igual(c.comentario, 'Buen trabajo', 'Comentario')
+    igual(c.detalle.map((d) => d.nivel), ['Completa', 'Con detalles por corregir'], 'Nivel por criterio')
+    const b = (await coord.get('/bitacora?accion=calificar')).datos.filas
+    afirmar(b.some((f) => f.entidad === 'calificacion_actividad' && f.usuario === 'Dra. Ana Torres'), 'La bitácora no guarda quién calificó')
+    afirmar((await coord.get('/bitacora?accion=publicar_calificaciones')).datos.filas.length > 0, 'Falta publicar_calificaciones en la bitácora')
+    afirmar((await avisosDe(alumna)).filas.some((f) => f.tipo === 'aula_calificaciones' && !/8/.test(f.texto)), 'Falta el aviso de calificaciones publicadas, sin el valor')
+    igual((await alumna.post('/actividades/1/entregas', { texto: 'Tarde' })).estado, 409, 'Entregar con las calificaciones publicadas')
+  })
+
+  ca('CA-37', 'Examen de 1 minuto: las respuestas después del límite se rechazan, el intento se cierra con lo guardado y la correcta nunca viaja al alumno', async () => {
+    const ex = await docA.post(`/cursos/${ASIG}/actividades`, {
+      tipo: 'examen', titulo: 'Examen de un minuto', categoria_id: 2, tiempo_limite_min: 1, intentos_permitidos: 1, publicada: true,
+      preguntas: [
+        { tipo: 'opcion', enunciado: '¿Cuál es la correcta?', opciones: ['Esta', 'Aquella'], correcta: 1, puntos: 6 },
+        { tipo: 'abierta', enunciado: 'Explica', puntos: 4 },
+      ],
+    })
+    igual(ex.estado, 200, 'Crear el examen')
+    const det = (await alumna.get(`/actividades/${ex.datos.id}`)).datos
+    sinCorrecta(det, 'La correcta viaja en el detalle de la actividad')
+    const ini = await alumna.post(`/actividades/${ex.datos.id}/intentos`)
+    igual(ini.estado, 200, 'Iniciar el intento')
+    sinCorrecta(ini.datos, 'La correcta viaja al iniciar el intento')
+    const [q1, q2] = ini.datos.preguntas
+    igual((await alumna.put(`/intentos/${ini.datos.id}/respuestas`, { respuestas: { [q1.id]: '1' } })).estado, 200, 'Guardar una respuesta a tiempo')
+    igual((await regina.get(`/intentos/${ini.datos.id}`)).estado, 403, 'Otro alumno abre el intento')
+    sql(`UPDATE intento_examen SET limite = UTC_TIMESTAMP() - INTERVAL 5 SECOND WHERE id = ${ini.datos.id}`)
+    const tarde = await alumna.put(`/intentos/${ini.datos.id}/respuestas`, { respuestas: { [q2.id]: 'respuesta tardía' } })
+    igual(tarde.estado, 409, 'Respuesta fuera de tiempo')
+    const cerrado = (await alumna.get(`/intentos/${ini.datos.id}`)).datos
+    igual(cerrado.estado, 'enviado', 'El intento se cierra solo')
+    igual(Object.keys(cerrado.respuestas), [String(q1.id)], 'Solo queda lo guardado a tiempo')
+    sinCorrecta(cerrado, 'La correcta viaja en el intento cerrado')
+    igual((await alumna.post(`/actividades/${ex.datos.id}/intentos`)).estado, 409, 'Un segundo intento sin intentos disponibles')
+    // El docente califica la abierta; el puntaje pasa a calificacion_actividad y se publica como una tarea.
+    const lista = (await docA.get(`/actividades/${ex.datos.id}/intentos`)).datos.intentos
+    igual([lista.length, lista[0].por_calificar, lista[0].puntos_auto], [1, true, 6], 'Lista de intentos del docente')
+    const vistaDocente = (await docA.get(`/intentos/${ini.datos.id}`)).datos
+    afirmar(vistaDocente.preguntas.some((p) => p.correcta !== undefined), 'El docente no ve la correcta')
+    igual((await docA.put(`/intentos/${ini.datos.id}/calificar`, { puntos_abiertas: {} })).estado, 422, 'Calificar sin las abiertas')
+    const gr = await docA.put(`/intentos/${ini.datos.id}/calificar`, { puntos_abiertas: { [q2.id]: 0 } })
+    igual([gr.estado, gr.datos.puntos_finales], [200, 6], 'Calificar la abierta')
+    igual((await docA.put(`/actividades/${ex.datos.id}/publicar-calificaciones`)).estado, 200, 'Publicar el examen')
+    const mio = (await alumna.get('/cursos/5/calificaciones')).datos.actividades.find((x) => x.id === ex.datos.id)
+    igual(mio.calificacion.puntos, 6, 'Puntos del examen')
+    ctx.examenMinuto = ex.datos.id
+  })
+
+  ca('CA-38', 'Categorías que no suman 100 responden 422; con 100 se guardan y la calculada aparece', async () => {
+    igual((await docA.put(`/cursos/${ASIG}/categorias`, { categorias: [{ nombre: 'Tareas', peso: 40 }, { nombre: 'Examen', peso: 50 }] })).estado, 422, 'Suman 90')
+    igual((await docA.put(`/cursos/${ASIG}/categorias`, { categorias: [{ nombre: 'Tareas', peso: 70 }, { nombre: 'Examen', peso: 70 }] })).estado, 422, 'Suman 140')
+    const cats = (await docA.get(`/cursos/${ASIG}/categorias`)).datos.categorias
+    igual(cats.map((c) => c.peso), [40, 60], 'Los pesos no cambiaron tras los 422')
+    const ok = await docA.put(`/cursos/${ASIG}/categorias`, { categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre, peso: c.peso })) })
+    igual(ok.estado, 200, 'Suman 100')
+    const val = (await docA.get(`/cursos/${ASIG}/calculadas`)).datos.filas.find((f) => f.alumno_id === ctx.valeriaAlumnoId).valor
+    igual(val, 6.8, 'Calculada de Valeria (tareas 8/10 al 40 %, examen 6/10 al 60 %)')
+    const delAlumno = (await alumna.get('/cursos/5/calificaciones')).datos
+    igual(delAlumno.calculada.valor, 6.8, 'La calculada del alumno')
+    afirmar(/no es la calificación oficial/.test(delAlumno.leyenda), 'Falta la leyenda de calculada')
+    const otro = (await docA.get(`/cursos/${ASIG}/calculadas`)).datos.filas.find((f) => f.alumno_id !== ctx.valeriaAlumnoId)
+    igual(otro.valor, null, 'Sin actividades calificadas no hay calculada')
+    igual((await alumna.get(`/cursos/${ASIG}/calculadas`)).estado, 403, 'El alumno pide las calculadas de todos')
+  })
+
+  ca('CA-39', 'Docente A usa la calculada en su entrega en borrador y envía: Coordinación la ve como versión normal y el historial no cambia hasta aceptar', async () => {
+    const estado = (await docA.get(`/asignaciones/${asigA.id}`)).datos.entrega
+    if (estado?.estado === 'aceptada') igual((await coord.put(`/entregas/${estado.id}/reabrir`, { motivo: 'Para usar la calculada' })).estado, 200, 'Reabrir')
+    if (estado?.estado === 'enviada') igual((await coord.put(`/entregas/${estado.id}/devolver`, { motivo: 'Para usar la calculada' })).estado, 200, 'Devolver')
+    const det = (await docA.get(`/asignaciones/${asigA.id}`)).datos
+    igual(det.entrega?.estado, 'borrador', 'Estado de la entrega antes de usar la calculada')
+    const historialAntes = JSON.stringify((await alumna.get(`/alumnos/${ctx.valeriaAlumnoId}/historial`)).datos)
+    const calc = (await docA.get(`/cursos/${ASIG}/calculadas`)).datos.filas
+    const items = det.alumnos
+      .filter((a) => !a.bloqueado)
+      .map((a) => ({ alumno_id: a.alumno_id, valor: calc.find((c) => c.alumno_id === a.alumno_id)?.valor ?? 7 }))
+    const env = await docA.post(`/entregas/${det.entrega.id}/enviar`, { calificaciones: items })
+    igual(env.estado, 200, `Enviar con la calculada: ${JSON.stringify(env.datos)}`)
+    const vista = (await coord.get(`/entregas/${det.entrega.id}`)).datos
+    igual([vista.entrega.estado, vista.entrega.calificaciones.find((c) => c.alumno_id === ctx.valeriaAlumnoId).valor], ['enviada', 6.8], 'Lo que ve Coordinación')
+    igual(JSON.stringify((await alumna.get(`/alumnos/${ctx.valeriaAlumnoId}/historial`)).datos), historialAntes, 'El historial cambió antes de aceptar')
+  })
+
+  ca('CA-40', 'Alumno manda un mensaje a Docente A y otro a un alumno: Docente A lo recibe con un aviso sin el texto; el mensaje al alumno responde 403', async () => {
+    const m = await alumna.post('/mensajes', { destinatario_id: idDocA, texto: 'Profesora, ¿puedo entregar mi tarea mañana? (secreto-del-mensaje)' })
+    igual(m.estado, 200, 'Mensaje al docente')
+    igual((await alumna.post('/mensajes', { destinatario_id: mariana.id, texto: 'Hola' })).estado, 403, 'Mensaje a otro alumno')
+    const conv = (await docA.get('/conversaciones')).datos.conversaciones.find((c) => c.con.id === idValeria)
+    afirmar(conv && conv.sin_leer >= 1, 'Docente A no recibió el mensaje')
+    const abierta = (await docA.get(`/conversaciones/${conv.id}`)).datos
+    afirmar(abierta.mensajes.some((x) => x.texto.includes('secreto-del-mensaje')), 'No llegó el texto')
+    const avisos = (await avisosDe(docA)).filas.filter((f) => f.tipo === 'mensaje')
+    afirmar(avisos.length > 0 && avisos.every((f) => !f.texto.includes('secreto')), 'Falta el aviso o trae el texto')
+    igual((await docA.put(`/conversaciones/${conv.id}/leer`)).estado, 200, 'Marcar leída')
+    igual((await docA.post('/mensajes', { destinatario_id: idValeria, texto: 'Sí, sin problema.' })).estado, 200, 'Respuesta del docente')
+    igual((await mariana.get(`/conversaciones/${conv.id}`)).estado, 403, 'Otro alumno lee la conversación')
+    igual((await coord.get(`/conversaciones/${conv.id}`)).estado, 403, 'Coordinación lee una conversación sin reporte')
+    ctx.conversacion = conv.id
+  })
+
+  ca('CA-41', 'Docente A manda un mensaje a un alumno de POS-02: 403; la conversación reportada solo la abre Coordinación y queda en bitácora', async () => {
+    igual((await docA.post('/mensajes', { destinatario_id: regina.id, texto: 'Hola' })).estado, 403, 'Mensaje a un alumno de POS-02')
+    const contactos = (await docA.get('/mensajes/contactos')).datos.contactos.map((c) => c.id)
+    afirmar(!contactos.includes(regina.id) && contactos.includes(idValeria), 'Los contactos del docente no cuadran')
+    igual((await alumna.post(`/conversaciones/${ctx.conversacion}/reportar`, { motivo: '' })).estado, 422, 'Reportar sin motivo')
+    igual((await mariana.post(`/conversaciones/${ctx.conversacion}/reportar`, { motivo: 'No soy parte' })).estado, 403, 'Reportar una conversación ajena')
+    igual((await alumna.post(`/conversaciones/${ctx.conversacion}/reportar`, { motivo: 'Mensaje inapropiado de prueba' })).estado, 200, 'Reportar')
+    igual((await coord.get('/conversaciones/reportadas')).datos.reportes[0].conversacion_id, ctx.conversacion, 'Reportes de Coordinación')
+    const c = await coord.get(`/conversaciones/${ctx.conversacion}`)
+    igual([c.estado, c.datos.acceso], [200, 'reportada'], 'Coordinación abre la reportada')
+    afirmar((await coord.get('/bitacora?accion=consulta_conversacion_reportada')).datos.filas.length > 0, 'Falta la consulta en la bitácora')
+    afirmar((await coord.get('/bitacora?accion=reportar_conversacion')).datos.filas.length > 0, 'Falta el reporte en la bitácora')
+    igual((await docA.get('/conversaciones/reportadas')).estado, 403, 'El docente pide los reportes')
+  })
+
+  ca('CA-42', 'Alumno publica en el foro y Docente A oculta la publicación con motivo: otro alumno ve "oculta por moderación"; la bitácora dice quién y por qué', async () => {
+    const p = await alumna.post('/actividades/3/publicaciones', { texto: 'Texto-que-se-ocultara' })
+    igual(p.estado, 200, 'Publicar')
+    const r = await mariana.post('/actividades/3/publicaciones', { texto: 'Respuesta de Mariana', responde_a: p.datos.id })
+    igual(r.estado, 200, 'Responder')
+    afirmar((await avisosDe(alumna)).filas.some((f) => f.tipo === 'aula_foro'), 'Falta el aviso de respuesta')
+    igual((await mariana.put(`/publicaciones/${p.datos.id}/ocultar`, { motivo: 'x' })).estado, 403, 'Un alumno oculta')
+    igual((await (await docBv()).put(`/publicaciones/${p.datos.id}/ocultar`, { motivo: 'x' })).estado, 403, 'Docente B oculta')
+    igual((await docA.put(`/publicaciones/${p.datos.id}/ocultar`, { motivo: '' })).estado, 422, 'Ocultar sin motivo')
+    igual((await docA.put(`/publicaciones/${p.datos.id}/ocultar`, { motivo: 'Lenguaje fuera de lugar' })).estado, 200, 'Ocultar')
+    const foro = await mariana.get('/actividades/3/publicaciones')
+    const oculta = foro.datos.publicaciones.find((x) => x.id === p.datos.id)
+    igual([oculta.oculta, oculta.texto], [true, null], 'Lo que ve otro alumno')
+    afirmar(!JSON.stringify(foro.datos).includes('Texto-que-se-ocultara') && !JSON.stringify(foro.datos).includes('Lenguaje fuera de lugar'), 'El alumno recibe el texto o el motivo')
+    const propia = (await alumna.get('/actividades/3/publicaciones')).datos.publicaciones.find((x) => x.id === p.datos.id)
+    igual([propia.oculta, propia.texto], [true, null], 'Lo que ve el autor')
+    const delDocente = (await docA.get('/actividades/3/publicaciones')).datos.publicaciones.find((x) => x.id === p.datos.id)
+    igual([delDocente.texto, delDocente.motivo_oculto], ['Texto-que-se-ocultara', 'Lenguaje fuera de lugar'], 'Lo que ve el moderador')
+    const b = (await coord.get('/bitacora?accion=ocultar&entidad=publicacion_foro')).datos.filas[0]
+    afirmar(b.usuario === 'Dra. Ana Torres' && b.motivo === 'Lenguaje fuera de lugar', 'La bitácora no dice quién ocultó ni por qué')
+    igual((await docA.put(`/publicaciones/${p.datos.id}/ocultar`, { motivo: 'Otra vez' })).estado, 409, 'Ocultar dos veces')
+  })
+
+  ca('CA-43', 'Auxiliar y Carga externa piden módulos, tareas o foros por API: 403', async () => {
+    for (const [c, nombre] of [[aux, 'Auxiliar'], [carga, 'Carga externa']]) {
+      for (const ruta of [`/cursos/${ASIG}`, `/cursos/${ASIG}/modulos`, `/cursos/${ASIG}/actividades`, '/actividades/1', '/actividades/1/entregas', '/actividades/3/publicaciones', `/cursos/${ASIG}/calificaciones`, '/conversaciones', '/archivos/1', '/mensajes/contactos']) {
+        igual((await c.get(ruta)).estado, 403, `${nombre} pide ${ruta}`)
+      }
+      igual((await c.post('/mensajes', { destinatario_id: idDocA, texto: 'Hola' })).estado, 403, `${nombre} manda un mensaje`)
+    }
+  })
+
+  ca('CA-44', 'Dirección intenta crear un módulo o calificar: 403; consulta todo y puede mandar un mensaje', async () => {
+    igual((await dir.post(`/cursos/${ASIG}/modulos`, { titulo: 'X' })).estado, 403, 'Dirección crea módulo')
+    igual((await dir.post('/actividades/1/calificar', { alumno_id: ctx.valeriaAlumnoId, puntos: 1 })).estado, 403, 'Dirección califica')
+    igual((await dir.put('/actividades/1/publicar-calificaciones')).estado, 403, 'Dirección publica calificaciones')
+    igual((await dir.post('/actividades/3/publicaciones', { texto: 'X' })).estado, 403, 'Dirección publica en el foro')
+    igual((await dir.put(`/cursos/${ASIG}/categorias`, { categorias: [{ nombre: 'A', peso: 100 }] })).estado, 403, 'Dirección cambia categorías')
+    igual((await dir.post('/archivos', { nombre: 'a.pdf', contenido: bytesPdf.toString('base64') })).estado, 403, 'Dirección sube archivos')
+    for (const ruta of [`/cursos/${ASIG}/modulos`, `/cursos/${ASIG}/actividades`, '/actividades/1/entregas', `/actividades/${ctx.examenMinuto}/intentos`, '/actividades/3/publicaciones', `/cursos/${ASIG}/calificaciones`, `/archivos/${ctx.pdfModulo}`]) {
+      igual((await dir.get(ruta)).estado, 200, `Dirección consulta ${ruta}`)
+    }
+    igual((await dir.post('/mensajes', { destinatario_id: idDocA, texto: 'Mensaje de Dirección' })).estado, 200, 'Dirección manda un mensaje')
+    afirmar(!(await dir.get('/conversaciones')).datos.conversaciones.some((c) => c.con.id === idValeria), 'Dirección ve conversaciones ajenas')
+  })
+
+  ca('CA-45', 'Sin sesión se piden un archivo, un mensaje y un foro: 401 sin datos', async () => {
+    for (const [metodo, ruta] of [['GET', '/archivos/1'], ['GET', `/conversaciones/${ctx.conversacion}`], ['GET', '/actividades/3/publicaciones'], ['GET', `/cursos/${ASIG}/modulos`], ['POST', '/mensajes'], ['POST', '/archivos'], ['POST', '/actividades/3/publicaciones'], ['POST', '/actividades/1/entregas']]) {
+      const r = await anonimo().pedir(metodo, ruta, metodo === 'GET' ? undefined : {})
+      igual([r.estado, Object.keys(r.datos)], [401, ['error']], `${metodo} ${ruta} sin sesión`)
+    }
+  })
+
+  ca('CA-46', 'Coordinación en "Ver como" Alumno intenta entregar y publicar; la cuenta de Alumno intenta crear un módulo o calificar: las cuatro responden 403 y nada cambia', async () => {
+    const cuenta = (c) => c.get('/actividades/3/publicaciones').then((r) => r.datos.publicaciones.length)
+    const entregasAntes = (await docA.get('/actividades/1/entregas')).datos.alumnos.find((a) => a.nombre.startsWith('Valeria')).versiones.length
+    const foroAntes = await cuenta(docA)
+    const modulosAntes = (await docA.get(`/cursos/${ASIG}/modulos`)).datos.modulos.length
+    const id = (await coord.get('/usuarios?q=alumno@prueba.local')).datos.filas[0].id
+    igual((await coord.post(`/ver-como/${id}`)).estado, 200, 'Ver como alumno')
+    igual((await coord.post('/actividades/1/entregas', { texto: 'Desde la vista' })).estado, 403, 'Entregar en Ver como')
+    igual((await coord.post('/actividades/3/publicaciones', { texto: 'Desde la vista' })).estado, 403, 'Publicar en Ver como')
+    igual((await coord.post('/mensajes', { destinatario_id: idDocA, texto: 'Desde la vista' })).estado, 403, 'Mensaje en Ver como')
+    igual((await coord.get('/conversaciones')).estado, 403, 'Leer mensajes en Ver como')
+    igual((await coord.get(`/cursos/${ASIG}/modulos`)).estado, 200, 'Mirar el aula en Ver como')
+    igual((await coord.post('/ver-como/salir')).estado, 200, 'Salir de la vista')
+    igual((await alumna.post(`/cursos/${ASIG}/modulos`, { titulo: 'Intruso' })).estado, 403, 'Alumno crea módulo')
+    igual((await alumna.post('/actividades/1/calificar', { alumno_id: ctx.valeriaAlumnoId, puntos: 10 })).estado, 403, 'Alumno califica')
+    igual((await alumna.put('/actividades/1/publicar-calificaciones')).estado, 403, 'Alumno publica calificaciones')
+    igual((await alumna.post(`/cursos/${ASIG}/actividades`, { tipo: 'tarea', titulo: 'X' })).estado, 403, 'Alumno crea tarea')
+    igual((await docA.get('/actividades/1/entregas')).datos.alumnos.find((a) => a.nombre.startsWith('Valeria')).versiones.length, entregasAntes, 'Cambiaron las entregas')
+    igual(await cuenta(docA), foroAntes, 'Cambió el foro')
+    igual((await docA.get(`/cursos/${ASIG}/modulos`)).datos.modulos.length, modulosAntes, 'Cambiaron los módulos')
+    // Por hacer y calendario del aula.
+    const hoy = (await alumna.get('/tablero')).datos
+    afirmar(hoy.por_hacer.some((i) => i.tipo === 'aula_examen'), 'El alumno no ve el examen abierto en Por hacer')
+    afirmar((await alumna.get('/calendario')).datos.eventos.some((e) => e.tipo === 'examen'), 'El calendario del alumno no trae el examen')
+    afirmar((await docA.get('/calendario')).datos.eventos.some((e) => e.tipo === 'tarea'), 'El calendario del docente no trae la tarea')
   })
 }
 

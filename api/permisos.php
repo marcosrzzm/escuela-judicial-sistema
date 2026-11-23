@@ -30,6 +30,15 @@ const MATRIZ_PERMISOS = [
         'registro_carga_externa' => ['ver'],
         'bitacora_cambio' => ['ver'],
         'metrica_caso' => ['ver', 'crear'],
+        // Aula (sección 12.12).
+        'modulo' => ['ver', 'crear', 'modificar'],
+        'archivo' => ['ver', 'crear'],
+        'actividad' => ['ver', 'crear', 'modificar'],
+        'entrega_tarea' => ['ver'],
+        'calificacion_actividad' => ['ver', 'modificar'],
+        'intento_examen' => ['ver'],
+        'mensaje' => ['ver', 'crear'],
+        'publicacion_foro' => ['ver', 'crear', 'modificar'],
     ],
     'docente' => [
         'periodo' => ['ver'],
@@ -41,6 +50,15 @@ const MATRIZ_PERMISOS = [
         'decision_evaluacion' => ['ver'],
         'entrega_calificaciones' => ['ver', 'crear', 'modificar'],
         'calificacion' => ['ver', 'crear', 'modificar'],
+        // Aula (12.12): solo de sus cursos; el servidor comprueba el curso en cada petición.
+        'modulo' => ['ver', 'crear', 'modificar'],
+        'archivo' => ['ver', 'crear'],
+        'actividad' => ['ver', 'crear', 'modificar'],
+        'entrega_tarea' => ['ver'],
+        'calificacion_actividad' => ['ver', 'crear', 'modificar'],
+        'intento_examen' => ['ver', 'modificar'],
+        'mensaje' => ['ver', 'crear'],
+        'publicacion_foro' => ['ver', 'crear', 'modificar'],
     ],
     // Dirección ve todo lo que ve Coordinación, en modo consulta (especificación, 10.7); solo escribe para
     // autorizar los casos que se le envían. Usuarios y roles: solo ver.
@@ -63,6 +81,15 @@ const MATRIZ_PERMISOS = [
         'registro_carga_externa' => ['ver'],
         'bitacora_cambio' => ['ver'],
         'metrica_caso' => ['ver'],
+        // Aula (12.12): lectura de todo y mensajes propios; ninguna otra escritura.
+        'modulo' => ['ver'],
+        'archivo' => ['ver'],
+        'actividad' => ['ver'],
+        'entrega_tarea' => ['ver'],
+        'calificacion_actividad' => ['ver'],
+        'intento_examen' => ['ver'],
+        'mensaje' => ['ver', 'crear'],
+        'publicacion_foro' => ['ver'],
     ],
     'carga_externa' => [
         'periodo' => ['ver'],
@@ -85,6 +112,15 @@ const MATRIZ_PERMISOS = [
         'decision_evaluacion' => ['ver'],
         'calificacion' => ['ver'],
         'pendiente_academico' => ['ver'],
+        // Aula (12.12): solo lo publicado de sus cursos y lo propio; cada endpoint comprueba su alumno_id.
+        'modulo' => ['ver'],
+        'archivo' => ['ver', 'crear'],
+        'actividad' => ['ver'],
+        'entrega_tarea' => ['ver', 'crear'],
+        'calificacion_actividad' => ['ver'],
+        'intento_examen' => ['ver', 'crear'],
+        'mensaje' => ['ver', 'crear'],
+        'publicacion_foro' => ['ver', 'crear'],
     ],
 ];
 

@@ -60,7 +60,8 @@ const esquema = readFileSync(join(raiz, 'sql/01_esquema.sql'), 'utf8')
 const tablas01 = (esquema.match(/^CREATE TABLE/gm) ?? []).length
 const tablas03 = tablas01 + (readFileSync(join(raiz, 'sql/03_administracion.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
 const tablas04 = tablas03 + (readFileSync(join(raiz, 'sql/04_acceso_por_correo.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
-const tablas = tablas04 + (readFileSync(join(raiz, 'sql/05_plataforma.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
+const tablas05 = tablas04 + (readFileSync(join(raiz, 'sql/05_plataforma.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
+const tablas = tablas05 + (readFileSync(join(raiz, 'sql/06_aula.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
 const triggers = (readFileSync(join(raiz, 'sql/02_bitacora_inmutable.sql'), 'utf8').match(/^CREATE TRIGGER/gm) ?? []).length
 const r = await fetch(destino.url, {
   method: 'POST',
@@ -78,6 +79,7 @@ if (aplicar) {
 if (e.tablas < tablas01) console.log('PENDIENTE 01_esquema.sql')
 if (e.tablas < tablas03) console.log('PENDIENTE 03_administracion.sql')
 if (e.tablas < tablas04) console.log('PENDIENTE 04_acceso_por_correo.sql')
-if (e.tablas < tablas) console.log('PENDIENTE 05_plataforma.sql')
+if (e.tablas < tablas05) console.log('PENDIENTE 05_plataforma.sql')
+if (e.tablas < tablas) console.log('PENDIENTE 06_aula.sql')
 if (e.triggers < triggers) console.log('PENDIENTE 02_bitacora_inmutable.sql')
 console.log(`Base con ${e.tablas} tablas y ${e.triggers} disparadores; esperadas ${tablas} y ${triggers}.`)

@@ -250,7 +250,7 @@ function por_hacer_de(array $u): array
     if (in_array($u['base'], ['coordinacion', 'direccion', 'docente'], true)) {
         $items = array_merge($items, fechas_de_la_semana($u));
     }
-    return $items;
+    return array_merge($items, por_hacer_de_aula($u));
 }
 
 /**
@@ -322,7 +322,7 @@ function tarjetas_de_alumno(array $u, int $periodo_id): array
         $f['titulo'] = $f['materia'];
         $f['calificacion'] = $cal === null ? null : ['valor' => $cal['valor'] === null ? null : (float) $cal['valor'], 'estatus' => $cal['estatus']];
         $f['derecho'] = $d === null ? null : ($d['bloqueado'] ? 'sin_derecho' : ($d['resultado'] === 'con_derecho' ? 'con_derecho' : 'pendiente'));
-        $f['enlace'] = '/historial';
+        $f['enlace'] = "/cursos/{$f['asignacion_id']}";
     }
     return $filas;
 }
@@ -349,7 +349,7 @@ function ruta_tablero(): never
             foreach (asignaciones_en_alcance($u, $pid) as $a) {
                 $tarjetas[] = [
                     'tipo' => 'asignacion', 'id' => (int) $a['id'], 'titulo' => $a['materia'], 'grupo' => $a['grupo'], 'programa' => $a['programa'], 'periodo' => $a['periodo'],
-                    'enlace' => "/asignaciones/{$a['id']}/calificaciones", 'alumnos_activos' => (int) $a['alumnos_activos'],
+                    'enlace' => "/asignaciones/{$a['id']}/inicio", 'alumnos_activos' => (int) $a['alumnos_activos'],
                     'fecha_limite' => $a['fecha_limite_entrega'], 'entrega' => $a['entrega'] === null ? null : ['estado' => $a['entrega']['estado'], 'version' => $a['entrega']['version']],
                 ];
             }
@@ -552,6 +552,7 @@ function ruta_calendario(): never
             ];
         }
     }
+    $eventos = array_merge($eventos, eventos_de_aula($u, $gid));
     usort($eventos, static fn (array $x, array $y): int => strcmp($x['fecha'], $y['fecha']));
     responder(200, ['eventos' => $eventos, 'grupos' => array_map(static fn (array $g): array => ['id' => (int) $g['id'], 'clave' => $g['clave'], 'periodo' => $g['periodo']], $grupos)]);
 }

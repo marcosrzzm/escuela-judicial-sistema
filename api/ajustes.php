@@ -58,6 +58,10 @@ function cargar_config(): array
         // Lista de destinatarios permitidos mientras DATOS_FICTICIOS esté encendido: dominios completos o correos exactos.
         'correo_permitidos' => array_values(array_filter(array_map(static fn ($v) => strtolower(trim($v)), explode(',', $valores['CORREO_PERMITIDOS'] ?? '')))),
         'correo_tope_diario' => max(0, (int) ($valores['CORREO_TOPE_DIARIO'] ?? 50)),
+        // Aula (especificación, 12.3 y 12.11): archivos y respaldos viven fuera de la carpeta pública. En el hosting,
+        // `ej-archivos/` y `ej-respaldos/` un nivel arriba de ella; en local, dentro de seguridad/ (no se versiona).
+        'archivos_dir' => rtrim(($valores['ARCHIVOS_DIR'] ?? '') ?: (($valores['ENTORNO'] ?? 'produccion') === 'local' ? dirname(__DIR__) . '/seguridad/archivos' : dirname(__DIR__, 2) . '/ej-archivos'), '/'),
+        'respaldos_dir' => rtrim(($valores['RESPALDOS_DIR'] ?? '') ?: (($valores['ENTORNO'] ?? 'produccion') === 'local' ? dirname(__DIR__) . '/seguridad/respaldos' : dirname(__DIR__, 2) . '/ej-respaldos'), '/'),
         'web_puerto' => (int) ($valores['WEB_PUERTO'] ?? 5173),
         'cookie' => 'ej_sesion',
         'horas_sesion' => 8,

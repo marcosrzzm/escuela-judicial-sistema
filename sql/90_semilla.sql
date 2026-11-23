@@ -86,3 +86,45 @@ INSERT INTO pendiente_academico (alumno_id, materia_id, periodo_origen_id, tipo,
 INSERT INTO cierre (id, grupo_id, version, estado, requiere_autorizacion, preparado_por, aprobado_por, fecha_aprobacion) VALUES
   (1, 1, 1, 'aprobado', 0, 1, 1, '2026-06-24 12:00:00'),
   (2, 2, 1, 'aprobado', 0, 1, 1, '2026-06-24 12:10:00');
+
+-- Aula (sección 12): contenido ficticio de POS-01 · Derecho Procesal (asignación 5, Docente A) para recorrerla en la demostración.
+-- Las fechas se calculan desde hoy en UTC, como las de la API.
+INSERT INTO categoria (id, asignacion_id, nombre, peso) VALUES (1, 5, 'Tareas', 40), (2, 5, 'Examen', 60);
+
+INSERT INTO rubrica (id, asignacion_id, nombre, criterios, creado_por) VALUES
+  (1, 5, 'Análisis de un caso', JSON_ARRAY(
+    JSON_OBJECT('descripcion', 'Fundamentación jurídica', 'niveles', JSON_ARRAY(
+      JSON_OBJECT('nombre', 'Completa', 'puntos', 5), JSON_OBJECT('nombre', 'Suficiente', 'puntos', 3), JSON_OBJECT('nombre', 'Insuficiente', 'puntos', 1))),
+    JSON_OBJECT('descripcion', 'Redacción y orden', 'niveles', JSON_ARRAY(
+      JSON_OBJECT('nombre', 'Clara', 'puntos', 5), JSON_OBJECT('nombre', 'Con detalles por corregir', 'puntos', 3), JSON_OBJECT('nombre', 'Confusa', 'puntos', 1)))
+  ), 2);
+
+INSERT INTO actividad (id, asignacion_id, tipo, titulo, instrucciones, categoria_id, puntos, fecha_limite, acepta_tarde, rubrica_id, disponible_desde, disponible_hasta, tiempo_limite_min, intentos_permitidos, calificable, publicada, creado_por) VALUES
+  (1, 5, 'tarea', 'Análisis de un caso (ficticio)', 'Lee el caso de la unidad 1 y redacta un análisis de una a dos páginas. Puedes escribir aquí, adjuntar un archivo o las dos cosas.', 1, 10, UTC_TIMESTAMP() + INTERVAL 5 DAY, 0, 1, NULL, NULL, NULL, 1, 1, 1, 2),
+  (2, 5, 'examen', 'Examen corto de la unidad 1 (ficticio)', 'Tres preguntas. Tienes 20 minutos desde que empiezas.', 2, 10, NULL, 0, NULL, UTC_TIMESTAMP() - INTERVAL 1 DAY, UTC_TIMESTAMP() + INTERVAL 14 DAY, 20, 1, 1, 1, 2),
+  (3, 5, 'foro', 'Foro de dudas (ficticio)', 'Plantea aquí tus dudas de la unidad 1 y responde las de tus compañeros.', NULL, 10, NULL, 0, NULL, NULL, NULL, NULL, 1, 0, 1, 2);
+
+INSERT INTO pregunta (id, actividad_id, tipo, enunciado, opciones, correcta, puntos, orden) VALUES
+  (1, 2, 'opcion', '¿Qué principio exige que las dos partes sean escuchadas antes de resolver?', JSON_ARRAY('Contradicción', 'Economía procesal', 'Definitividad'), '0', 3, 1),
+  (2, 2, 'vf', 'Una demanda puede presentarse sin señalar el domicilio del demandado.', NULL, 'f', 3, 2),
+  (3, 2, 'abierta', 'Explica con tus palabras qué es la legitimación en la causa.', NULL, NULL, 4, 3);
+
+INSERT INTO modulo (id, asignacion_id, titulo, orden, publicado, creado_por) VALUES
+  (1, 5, 'Unidad 1: Principios del proceso', 1, 1, 2),
+  (2, 5, 'Unidad 2: Pruebas y alegatos', 2, 1, 2);
+
+INSERT INTO elemento_modulo (id, modulo_id, tipo, titulo, texto, url, actividad_id, orden, publicado) VALUES
+  (1, 1, 'pagina', 'Bienvenida al curso', 'Este es el espacio de la materia. Aquí encontrarás el contenido de cada unidad, tus tareas, el examen y el foro. Todo el contenido de esta demostración es ficticio.', NULL, NULL, 1, 1),
+  (2, 1, 'enlace', 'Constitución Política de los Estados Unidos Mexicanos (sitio oficial)', 'Lectura de apoyo.', 'https://www.diputados.gob.mx/LeyesBiblio/pdf/CPEUM.pdf', NULL, 2, 1),
+  (3, 1, 'tarea', 'Análisis de un caso (ficticio)', NULL, NULL, 1, 3, 1),
+  (4, 1, 'foro', 'Foro de dudas (ficticio)', NULL, NULL, 3, 4, 1),
+  (5, 2, 'pagina', 'Qué se prueba y cómo', 'Las pruebas se ofrecen, se admiten y se desahogan en momentos distintos. Contenido de ejemplo para la demostración.', NULL, NULL, 1, 1),
+  (6, 2, 'examen', 'Examen corto de la unidad 1 (ficticio)', NULL, NULL, 2, 2, 1);
+
+INSERT INTO publicacion_foro (id, actividad_id, autor_id, texto, creado_en) VALUES
+  (1, 3, 2, 'Bienvenidas y bienvenidos. Escriban aquí sus dudas de la unidad 1 (publicación de ejemplo).', UTC_TIMESTAMP());
+
+INSERT INTO conversacion (id, par) VALUES (1, '2-7');
+INSERT INTO mensaje (id, conversacion_id, autor_id, texto, creado_en) VALUES
+  (1, 1, 2, 'Hola Valeria, quedo al pendiente de tus dudas sobre la primera tarea (mensaje de ejemplo).', UTC_TIMESTAMP());
+INSERT INTO conversacion_participante (conversacion_id, usuario_id, leido_hasta) VALUES (1, 2, 1), (1, 7, 0);
