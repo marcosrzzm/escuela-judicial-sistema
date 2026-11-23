@@ -153,9 +153,30 @@ function PestanaPeriodos() {
     },
   )
   const columnas: ColumnaTabla<Periodo>[] = [
-    { clave: 'nombre', encabezado: 'Periodo' },
-    { clave: 'fecha_inicio', encabezado: 'Inicio', render: (p) => soloFecha(p.fecha_inicio) },
-    { clave: 'fecha_fin', encabezado: 'Fin', render: (p) => soloFecha(p.fecha_fin) },
+    {
+      clave: 'nombre',
+      encabezado: 'Periodo',
+      render: (p) => (
+        <>
+          {p.nombre}
+          <span className="block text-xs text-ink-3 sm:hidden">
+            {soloFecha(p.fecha_inicio)} a {soloFecha(p.fecha_fin)}
+          </span>
+        </>
+      ),
+    },
+    {
+      clave: 'fecha_inicio',
+      encabezado: 'Inicio',
+      ocultarEnMovil: true,
+      render: (p) => soloFecha(p.fecha_inicio),
+    },
+    {
+      clave: 'fecha_fin',
+      encabezado: 'Fin',
+      ocultarEnMovil: true,
+      render: (p) => soloFecha(p.fecha_fin),
+    },
     { clave: 'estado', encabezado: 'Estado', render: (p) => <InsigniaEstado estado={p.estado} /> },
   ]
   return (
@@ -212,7 +233,7 @@ function DialogoMateria({ materia, alCerrar }: { materia: Materia | null; alCerr
   const guardar = useAccion(
     (v: MateriaFormulario) => (materia ? editarMateria(materia.id, v) : crearMateria(v)),
     {
-      exito: (_r, v) => `Materia ${v.nombre} guardada`,
+      exito: (_r, v) => `Materia guardada: ${v.nombre}`,
       alExito: alCerrar,
     },
   )
@@ -596,8 +617,16 @@ function PestanaAsignaciones() {
   const [cambio, setCambio] = useState<Asignacion | null>(null)
   const columnas: ColumnaTabla<Asignacion>[] = [
     { clave: 'grupo', encabezado: 'Grupo' },
-    { clave: 'materia', encabezado: 'Materia' },
-    { clave: 'docente', encabezado: 'Docente' },
+    {
+      clave: 'materia',
+      encabezado: 'Materia y docente',
+      render: (a) => (
+        <>
+          {a.materia}
+          <span className="block text-xs text-ink-3">{a.docente}</span>
+        </>
+      ),
+    },
   ]
   return (
     <div className="flex flex-col gap-4">

@@ -225,6 +225,7 @@ function usuario_actual(): ?array
         if ($visto === null) {
             // La cuenta vista ya no está activa: la vista termina sola.
             ejecutar('UPDATE sesion SET viendo_como_id = NULL WHERE id = ?', [$s['id']]);
+            registrar_bitacora('usuario', (int) $s['viendo_como_id'], 'ver_como_fin', null, null, 'cuenta vista inactiva', (int) $u['id']);
         } else {
             $visto['sesion_id'] = $u['sesion_id'];
             $visto['solo_lectura'] = true;

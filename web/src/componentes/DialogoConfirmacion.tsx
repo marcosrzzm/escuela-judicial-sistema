@@ -1,5 +1,6 @@
 /** Confirmación previa a una operación irreversible o visible: nombra siempre el objeto afectado. */
 import { Button } from '@/components/ui/button'
+import { useSesion } from '@/lib/sesion'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ export function DialogoConfirmacion({
   /** Rojo solo para lo que destruye; aprobar, aceptar y enviar van en primario. */
   peligroso?: boolean
 }) {
+  const { sesion } = useSesion()
   return (
     <Dialog open={abierto} onOpenChange={alCambiarApertura}>
       <DialogContent className="sm:max-w-md">
@@ -48,7 +50,8 @@ export function DialogoConfirmacion({
           <Button
             type="button"
             variant={peligroso ? 'destructive' : 'default'}
-            disabled={ocupado}
+            disabled={ocupado || sesion?.solo_lectura === true}
+            title={sesion?.solo_lectura ? 'Vista de solo lectura' : undefined}
             onClick={alConfirmar}
           >
             {ocupado ? 'Guardando…' : etiquetaAccion}

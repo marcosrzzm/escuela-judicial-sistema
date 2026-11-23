@@ -172,6 +172,7 @@ function FranjaVerComo() {
   const navegar = useNavigate()
   const salir = useAccion(() => salirDeVerComo(), {
     exito: () => 'Saliste de la vista',
+    refrescar: false,
     alExito: () => {
       void recargar().then(() => navegar('/usuarios'))
     },
@@ -181,9 +182,9 @@ function FranjaVerComo() {
     <div
       role="status"
       data-no-imprimir
-      className="sticky top-0 z-50 flex h-16 items-center justify-between gap-3 bg-ink px-4 text-sm text-white sm:h-11 sm:px-6"
+      className="sticky top-0 z-50 flex h-[5.5rem] flex-col items-start justify-center gap-1.5 bg-ink px-4 text-xs text-white sm:h-11 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:text-sm"
     >
-      <p className="line-clamp-2 min-w-0 leading-tight">
+      <p className="min-w-0 leading-tight">
         Estás viendo el sistema como <strong>{sesion.nombre}</strong> ({sesion.rol_nombre}). Solo
         lectura.
       </p>
@@ -353,7 +354,7 @@ export function Shell() {
     <div
       className={cn(
         'min-h-dvh overflow-x-clip bg-paper',
-        sesion.solo_lectura && '[--franja:4rem] sm:[--franja:2.75rem]',
+        sesion.solo_lectura && '[--franja:5.5rem] sm:[--franja:2.75rem]',
       )}
     >
       {saltoAlContenido}

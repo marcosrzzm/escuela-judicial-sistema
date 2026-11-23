@@ -151,7 +151,16 @@ export const AREAS: Area[] = [
     icono: Library,
     ruta: '/catalogos',
     roles: ['coordinacion'],
-    permiso: ['periodo:crear', 'materia:crear', 'grupo:crear', 'asignacion_docente:crear'],
+    permiso: [
+      'periodo:crear',
+      'periodo:modificar',
+      'materia:crear',
+      'materia:modificar',
+      'grupo:crear',
+      'grupo:modificar',
+      'asignacion_docente:crear',
+      'asignacion_docente:modificar',
+    ],
   },
   {
     clave: 'usuarios',

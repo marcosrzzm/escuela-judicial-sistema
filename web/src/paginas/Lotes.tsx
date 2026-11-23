@@ -19,6 +19,7 @@ import { InsigniaEstado } from '@/componentes/Estados'
 import { ErrorDatos } from '@/componentes/EstadoCarga'
 import { Pagina } from '@/componentes/Pagina'
 import { PieDeFormulario } from '@/componentes/PieDeFormulario'
+import { SiPuede } from '@/componentes/SiPuede'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
 import { registrarCarga, registrarRecepcion, type Lote } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
@@ -157,21 +158,25 @@ export function Lotes() {
               </a>
             </Button>
             {x.estado === 'generado' ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={recibir.ocupado}
-                onClick={() => recibir.ejecutar(x)}
-              >
-                <Inbox strokeWidth={2.4} aria-hidden="true" />
-                Registrar recepción
-              </Button>
+              <SiPuede recurso="registro_carga_externa" accion="crear">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={recibir.ocupado}
+                  onClick={() => recibir.ejecutar(x)}
+                >
+                  <Inbox strokeWidth={2.4} aria-hidden="true" />
+                  Registrar recepción
+                </Button>
+              </SiPuede>
             ) : null}
             {x.estado === 'recibido' ? (
-              <Button type="button" size="sm" onClick={() => setCarga(x)}>
-                <PackageCheck strokeWidth={2.4} aria-hidden="true" />
-                Registrar carga
-              </Button>
+              <SiPuede recurso="registro_carga_externa" accion="modificar">
+                <Button type="button" size="sm" onClick={() => setCarga(x)}>
+                  <PackageCheck strokeWidth={2.4} aria-hidden="true" />
+                  Registrar carga
+                </Button>
+              </SiPuede>
             ) : null}
           </>
         )}

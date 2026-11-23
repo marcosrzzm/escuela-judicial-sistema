@@ -412,7 +412,10 @@ function ruta_editar_grupo(array $a): never
 
 function ruta_docentes(): never
 {
-    exigir_permiso('asignacion_docente', 'crear');
+    $u = exigir_sesion();
+    if (!tiene_permiso($u, 'asignacion_docente', 'crear') && !tiene_permiso($u, 'asignacion_docente', 'modificar')) {
+        denegar('(asignacion_docente:crear o modificar)');
+    }
     responder(200, ['filas' => filas(
         'SELECT u.id, u.nombre FROM usuario u JOIN rol r ON r.clave = u.rol AND r.base = \'docente\' AND r.estado = \'activo\'
          WHERE u.estado = \'activo\' ORDER BY u.nombre'
@@ -432,6 +435,15 @@ function docente_valido(array $d): array
     return $doc;
 }
 
+/** Las asignaciones solo se crean o se cambian en un grupo activo de un periodo abierto. */
+function exigir_grupo_abierto(int $grupo_id): void
+{
+    $g = fila('SELECT g.clave, g.estado, p.nombre AS periodo, p.estado AS periodo_estado FROM grupo g JOIN periodo p ON p.id = g.periodo_id WHERE g.id = ?', [$grupo_id]);
+    if ($g !== null && ($g['periodo_estado'] === 'cerrado' || $g['estado'] !== 'activo')) {
+        error_http(409, "El grupo {$g['clave']} del periodo {$g['periodo']} está cerrado: sus asignaciones ya no se modifican.");
+    }
+}
+
 function ruta_crear_asignacion(): never
 {
     exigir_permiso('asignacion_docente', 'crear');
@@ -442,6 +454,7 @@ function ruta_crear_asignacion(): never
         error_http(422, 'Elige un grupo y una materia de la lista.');
     }
     $doc = docente_valido($d);
+    exigir_grupo_abierto((int) $g['id']);
     try {
         $id = insertar('asignacion_docente', ['grupo_id' => $g['id'], 'materia_id' => $m['id'], 'docente_id' => $doc['id']]);
     } catch (PDOException $e) {
@@ -463,6 +476,7 @@ function ruta_cambiar_docente(array $a): never
     }
     $d = cuerpo_json();
     $doc = docente_valido($d);
+    exigir_grupo_abierto((int) $asig['grupo_id']);
     $motivo = texto($d, 'motivo', 500, 'El motivo');
     if ((int) $doc['id'] === (int) $asig['docente_id']) {
         error_http(422, "{$doc['nombre']} ya es el docente de esta asignación.", ['docente_id' => 'Elige a otro docente.']);
@@ -508,15 +522,17 @@ const MAX_FILAS_IMPORTAR = 500;
 function leer_csv_alumnos(string $texto): array
 {
     $texto = (string) preg_replace('/^\xEF\xBB\xBF/', '', $texto);
-    if ($texto === '' || !mb_check_encoding($texto, 'UTF-8') || str_contains($texto, "\0")) {
+    if ($texto === '' || !mb_check_encoding($texto, 'UTF-8') || str_contains($texto, "\0") || str_contains($texto, "\u{FFFD}")) {
         error_http(422, 'No pude leer el archivo. Guárdalo como CSV en UTF-8 con las columnas matrícula y nombre.', ['texto' => 'Archivo no legible.']);
     }
     $filas = [];
+    $sep = null;
     foreach (preg_split('/\r\n|\n|\r/', $texto) ?: [] as $i => $linea) {
         if (trim($linea) === '') {
             continue;
         }
-        $sep = substr_count($linea, ';') > substr_count($linea, ',') ? ';' : ',';
+        // El separador se decide una sola vez, con la primera línea.
+        $sep ??= substr_count($linea, ';') > substr_count($linea, ',') ? ';' : ',';
         $c = str_getcsv($linea, $sep, '"', '');
         $filas[] = ['linea' => $i + 1, 'matricula' => trim((string) ($c[0] ?? '')), 'nombre' => trim((string) ($c[1] ?? ''))];
     }
@@ -539,7 +555,11 @@ function ruta_importar_lista(array $a): never
     exigir_permiso('alumno', 'crear');
     $g = grupo_editable((int) $a['id']);
     $d = cuerpo_json();
-    $filas = leer_csv_alumnos(is_string($d['texto'] ?? null) ? $d['texto'] : '');
+    $texto = is_string($d['texto'] ?? null) ? $d['texto'] : '';
+    if (strlen($texto) > 1_000_000) {
+        error_http(422, 'El archivo pesa más de 1 MB. Divídelo en partes más chicas.', ['texto' => 'Archivo demasiado grande.']);
+    }
+    $filas = leer_csv_alumnos($texto);
 
     $resumen = transaccion(function () use ($filas, $g): array {
         $creadas = 0;
@@ -561,7 +581,15 @@ function ruta_importar_lista(array $a): never
                 $rechazar($f, 'Repetida en el archivo: un alumno no puede estar dos veces en el mismo grupo (RN-01).');
             } else {
                 $vistas[mb_strtolower($m)] = true;
-                $alumno = fila('SELECT id, identificador, nombre FROM alumno WHERE identificador = ?', [$m]);
+                $alumno = fila('SELECT id, identificador, nombre, estatus FROM alumno WHERE identificador = ?', [$m]);
+                if ($alumno !== null && mb_strtolower(trim($alumno['nombre'])) !== mb_strtolower($f['nombre'])) {
+                    $rechazar($f, "La matrícula $m ya es de {$alumno['nombre']}. Corrígela en Historial del alumno o usa otra matrícula.");
+                    continue;
+                }
+                if ($alumno !== null && $alumno['estatus'] !== 'activo') {
+                    $rechazar($f, 'El alumno está de baja o egresado: no se inscribe desde una importación.');
+                    continue;
+                }
                 if ($alumno === null) {
                     $alumno = ['id' => insertar('alumno', ['identificador' => $m, 'nombre' => $f['nombre']]), 'identificador' => $m, 'nombre' => $f['nombre']];
                     registrar_bitacora('alumno', (int) $alumno['id'], 'alta', null, $alumno, 'Importación de lista');

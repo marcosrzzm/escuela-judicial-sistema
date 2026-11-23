@@ -36,7 +36,12 @@ export function useDatos<T>(ruta: string | null) {
 
 export function useAccion<V, R>(
   llamar: (valores: V) => Promise<Resultado<R>>,
-  opciones: { exito: (r: R, valores: V) => string; alExito?: (r: R, valores: V) => void },
+  opciones: {
+    exito: (r: R, valores: V) => string
+    alExito?: (r: R, valores: V) => void
+    /** Falso cuando la acción cambia de sesión: lo leído queda viejo y se limpia aparte. */
+    refrescar?: boolean
+  },
 ) {
   const cliente = useQueryClient()
   const m = useMutation({
@@ -47,7 +52,7 @@ export function useAccion<V, R>(
     },
     onSuccess: (r, valores) => {
       avisar.exito(opciones.exito(r, valores))
-      void cliente.invalidateQueries({ queryKey: ['api'] })
+      if (opciones.refrescar !== false) void cliente.invalidateQueries({ queryKey: ['api'] })
       opciones.alExito?.(r, valores)
     },
     onError: (e) => avisar.error(e.message),

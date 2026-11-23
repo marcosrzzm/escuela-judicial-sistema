@@ -348,6 +348,12 @@ ca('CA-17', 'Ver como Docente A: lee lo que él ve, escribir responde 403, los l
   afirmar(b.some((f) => f.accion === 'ver_como_fin' && f.usuario === 'Lic. Marina Solís'), 'Falta el fin de la vista')
   const negados = (await dir.get('/bitacora?accion=acceso_denegado&q=Marina')).datos.filas
   afirmar(negados.some((f) => /vista de solo lectura/.test(f.motivo ?? '')), 'El intento de escritura no quedó a nombre de Coordinación')
+  // Cerrar sesión dentro de la vista también cierra la vista en la bitácora.
+  const otra = await entrar('coordinacion@prueba.local')
+  igual((await otra.post(`/ver-como/${idDocA}`)).estado, 200, 'Segunda vista')
+  igual((await otra.post('/logout')).estado, 200, 'Cerrar sesión en la vista')
+  const fines = (await dir.get('/bitacora?accion=ver_como_fin')).datos.filas
+  afirmar(fines.some((f) => f.motivo === 'cierre de sesión' && f.usuario === 'Lic. Marina Solís'), 'Falta el fin de la vista al cerrar sesión')
 })
 
 ca('CA-18', 'Docente A no crea usuarios ni roles ni ve como otro usuario; los tres intentos quedan como acceso denegado', async () => {
@@ -417,6 +423,23 @@ ca('CA-20', 'Catálogos y CSV: periodo, materia y grupo nuevos, asignación al d
   igual(cambio.estado, 200, 'Cambiar el docente')
   const b = (await coord.get('/bitacora?accion=cambiar_docente')).datos.filas
   afirmar(b.some((f) => f.motivo === 'El titular salió de licencia' && f.despues?.docente === 'Dra. Ana Torres'), 'El cambio de docente no quedó en la bitácora')
+  // Matrícula existente con otro nombre, alumno de baja, archivo mal codificado o enorme.
+  const choque = await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: 'IMP-001,Otro Nombre Distinto\nIMP-777,Nuevo Alumno' })
+  igual([choque.datos.inscritas, choque.datos.rechazadas.length], [1, 1], 'Matrícula con nombre distinto')
+  afirmar(/ya es de /.test(choque.datos.rechazadas[0].razon), 'La razón no nombra al alumno guardado')
+  const g2n = await coord.post('/grupos', { periodo_id: per.datos.id, clave: 'ADM-02', programa: 'Otro', turno: 'Matutino' })
+  const igualNombre = await coord.post(`/grupos/${g2n.datos.id}/importar`, { texto: 'imp-003;  carla PRUEBA tres ' })
+  igual([igualNombre.datos.inscritas, igualNombre.datos.rechazadas.length], [1, 0], 'Mismo nombre con otras mayúsculas y espacios')
+  const idBaja = (await coord.get(`/grupos/${gru.datos.id}/lista`)).datos.alumnos.find((x) => x.identificador === 'IMP-002').alumno_id
+  igual((await coord.put(`/alumnos/${idBaja}`, { identificador: 'IMP-002', nombre: 'Beto Prueba Dos', estatus: 'baja', motivo: 'Prueba' })).estado, 200, 'Pasar alumno a baja')
+  const deBaja = await coord.post(`/grupos/${g2n.datos.id}/importar`, { texto: 'IMP-002,Beto Prueba Dos' })
+  afirmar(deBaja.datos.inscritas === 0 && /baja o egresado/.test(deBaja.datos.rechazadas[0].razon), 'Un alumno de baja se inscribió')
+  igual((await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: 'IMP-900,Mal \uFFFD codificado' })).estado, 422, 'Archivo con caracteres inválidos')
+  igual((await coord.post(`/grupos/${gru.datos.id}/importar`, { texto: 'x'.repeat(1_000_001) })).estado, 422, 'Archivo de más de 1 MB')
+  // Un periodo cerrado ya no admite asignaciones nuevas ni cambios de docente.
+  igual((await coord.put(`/periodos/${per.datos.id}`, { estado: 'cerrado' })).estado, 200, 'Cerrar el periodo')
+  igual((await coord.post('/asignaciones', { grupo_id: g2n.datos.id, materia_id: mat.datos.id, docente_id: ctx.docenteNuevo.id })).estado, 409, 'Asignar en un periodo cerrado')
+  igual((await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: ctx.docenteNuevo.id, motivo: 'Prueba' })).estado, 409, 'Cambiar docente en un periodo cerrado')
 })
 
 let fallas = 0

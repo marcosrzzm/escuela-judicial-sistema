@@ -275,6 +275,7 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
   })
   const ver = useAccion((u: Usuario) => verComo(u.id), {
     exito: (_r, u) => `Viendo el sistema como ${u.nombre}`,
+    refrescar: false,
     alExito: () => {
       void recargar().then(() => navegar('/'))
     },

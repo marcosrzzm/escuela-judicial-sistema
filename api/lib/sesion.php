@@ -68,6 +68,10 @@ function ruta_login(): never
 
 function ruta_logout(): never
 {
+    $u = usuario_actual();
+    if ($u !== null && $u['actor_real'] !== null) {
+        registrar_bitacora('usuario', (int) $u['id'], 'ver_como_fin', null, ['cuenta' => $u['nombre'], 'rol' => $u['rol']], 'cierre de sesión');
+    }
     cerrar_sesion();
     responder(200, ['ok' => true]);
 }

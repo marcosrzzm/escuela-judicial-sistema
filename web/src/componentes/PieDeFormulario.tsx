@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { useSesion } from '@/lib/sesion'
 
 /**
  * El pie de todo formulario que vive en un Dialog: Cancelar y la acción
@@ -28,6 +29,8 @@ export function PieDeFormulario({
   peligroso?: boolean
   extra?: ReactNode
 }) {
+  // En "Ver como" nada se guarda: el botón se apaga (el servidor lo rechaza igual).
+  const { sesion } = useSesion()
   return (
     <>
       {extra !== undefined ? (
@@ -40,7 +43,8 @@ export function PieDeFormulario({
         type="submit"
         form={formId}
         variant={peligroso ? 'destructive' : 'default'}
-        disabled={trabajando || deshabilitado}
+        disabled={trabajando || deshabilitado || sesion?.solo_lectura === true}
+        title={sesion?.solo_lectura ? 'Vista de solo lectura' : undefined}
       >
         {trabajando ? textoTrabajando : textoConfirmar}
       </Button>

@@ -189,6 +189,7 @@ function DialogoImportar({
   const [texto, setTexto] = useState<string | null>(null)
   const [archivo, setArchivo] = useState('')
   const [resumen, setResumen] = useState<ResumenImportacion | null>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
   const importar = useAccion((t: string) => importarLista(grupoId, t), {
     exito: (r) =>
       `Importación terminada: ${r.inscritas} inscritos, ${r.rechazadas.length} rechazados`,
@@ -239,9 +240,26 @@ function DialogoImportar({
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 setArchivo(f?.name ?? '')
-                void (f ? f.text() : Promise.resolve(null)).then(setTexto)
+                setErrorArchivo('')
+                setTexto(null)
+                if (!f) return
+                // Sin adivinar la codificación: si no es UTF-8 válido se pide guardarlo de nuevo.
+                void f
+                  .arrayBuffer()
+                  .then((b) => new TextDecoder('utf-8', { fatal: true }).decode(b))
+                  .then(setTexto)
+                  .catch(() =>
+                    setErrorArchivo(
+                      'No pude leer el archivo. En Excel, guárdalo como "CSV UTF-8 (delimitado por comas)" y vuelve a elegirlo.',
+                    ),
+                  )
               }}
             />
+            {errorArchivo ? (
+              <p role="alert" className="text-sm text-error">
+                {errorArchivo}
+              </p>
+            ) : null}
           </div>
         )}
         <DialogFooter>
