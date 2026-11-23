@@ -32,7 +32,7 @@ Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nu
 - Captura completa de asistencia y justificantes. Solo se guarda el resultado del derecho a evaluación.
 - Integración directa o API con la plataforma oficial. Nada se escribe en ella.
 - Firma digital o cualquier sustitución de la firma institucional. Los documentos salen "pendientes de firma".
-- Portal para alumnos. El alumno no tiene cuenta.
+- Portal de alumnos abierto: desde el 23 de noviembre de 2026 el alumno tiene una cuenta propia, creada solo por Coordinación, con acceso únicamente a sus datos (especificación, 11.8; correspondencia, fila 32). Nada más de un portal se abre: sin captura del alumno, sin mensajes.
 - Migración del histórico de la Escuela.
 - Comunicaciones masivas (correos, avisos a alumnos). Los correos uno a uno de invitación y restablecimiento sí existen (especificación, 10.6).
 - Cualquier automatización que tome una decisión académica en lugar de una persona.
@@ -94,7 +94,7 @@ Se usa siempre la misma palabra para lo mismo, en la interfaz y en el código.
 | Dirección | Autoriza decisiones y cierres que lo requieran. No captura calificaciones. |
 | Carga externa | Ve lotes aprobados y registra recepción, carga y discrepancias. No edita nada académico. |
 | Auxiliar | Solo consulta e imprime la lista de los grupos que le corresponden. |
-| Alumno | Beneficiario, sin cuenta en esta versión. |
+| Alumno | Cuenta propia creada por Coordinación; solo ve sus datos (especificación, 11.8). |
 | Rol personalizado | Lo crea Coordinación a partir de un rol base, con una parte de sus permisos. |
 
 La matriz completa rol por entidad está en `docs/especificacion.md`, sección 4.
@@ -126,7 +126,7 @@ Requisitos locales: Node 22 o superior, PHP 8.3 con `pdo_mysql`, binarios de MyS
 | Reiniciar la base con la semilla | `scripts/dev.sh --reiniciar` |
 | Revisar tipos y lint | `cd web && npm run lint && npx tsc -b` |
 | Pruebas del frontend | `cd web && npm test` |
-| Criterios de aceptación CA-01 a CA-20 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
+| Criterios de aceptación CA-01 a CA-31 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
 | Compilar | `cd web && npm run build` |
 | Armar la carpeta para el hosting | `scripts/publicar.sh` |
 | Primera cuenta de Coordinación en una base sin semilla | `php scripts/crear-coordinacion.php` |
@@ -146,6 +146,7 @@ Todas son ficticias y solo existen en la semilla. En local la contraseña de la 
 | direccion@prueba.local | Dirección | Autorizaciones |
 | carga@prueba.local | Carga externa | Lotes aprobados |
 | auxiliar@prueba.local | Auxiliar | Lista de POS-01 |
+| alumno@prueba.local | Alumno (ficticio) | Solo sus propios datos en POS-01 |
 
 ## 9. Cómo trabajar en este repo
 

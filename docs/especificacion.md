@@ -18,9 +18,9 @@ Indicadores del piloto: campos recapturados por caso (CA-11) y minutos activos d
 | Dirección | `direccion` | Autoridad que autoriza | Resolver decisiones y cierres marcados como "requiere autorización" |
 | Carga externa | `carga_externa` | Área que carga la plataforma oficial | Recibir lotes y registrar carga y discrepancias |
 | Auxiliar | `auxiliar` | Apoyo de Coordinación | Consultar e imprimir la lista de sus grupos |
-| Alumno | (sin cuenta) | Beneficiario | No entra al sistema en esta versión |
+| Alumno | `alumno` | Persona inscrita, con cuenta creada solo por Coordinación | Ver sus propias calificaciones aceptadas, su boleta, su calendario y sus avisos (sección 11.8) |
 
-Un usuario tiene un solo rol. Además de estos cinco roles del sistema, Coordinación puede crear roles personalizados a partir de uno de ellos (sección 10.2). Coordinación da de alta las cuentas desde la pantalla Usuarios y roles; la semilla solo trae las cuentas de prueba.
+Un usuario tiene un solo rol. Además de estos seis roles del sistema, Coordinación puede crear roles personalizados a partir de uno de ellos (sección 10.2). Coordinación da de alta las cuentas desde la pantalla Usuarios y roles; la semilla solo trae las cuentas de prueba.
 
 ## 3. Entidades y relaciones
 
@@ -30,15 +30,15 @@ Las 16 entidades de G2 más las de soporte que exige el login y la medición (ma
 
 **periodo**: `nombre` (2026-B), `fecha_inicio`, `fecha_fin`, `estado` (abierto, cerrado).
 
-**grupo**: `periodo_id`, `clave` (POS-01), `programa`, `turno`, `estado` (activo, cerrado).
+**grupo**: `periodo_id`, `clave` (POS-01), `programa`, `turno`, `estado` (activo, cerrado), `fecha_cierre_prevista` (opcional, sección 11.4).
 
-**alumno**: `identificador` (matrícula institucional, única), `nombre`, `estatus` (activo, baja, egresado).
+**alumno**: `identificador` (matrícula institucional, única), `nombre`, `estatus` (activo, baja, egresado), `correo` (opcional; solo se usa para invitar al alumno, sección 11.8).
 
 **inscripcion_grupo**: `alumno_id`, `grupo_id`, `estado` (activa, baja), `fecha_alta`, `fecha_baja`, `observacion`. Índice único lógico: un alumno solo puede tener una inscripción `activa` por grupo (RN-01).
 
-**usuario** (UsuarioRol en G2): `nombre`, `correo` (único), `contrasena_hash`, `rol` (clave de la tabla `rol`), `estado` (activo, inactivo), `debe_cambiar_clave` (sí o no).
+**usuario** (UsuarioRol en G2): `nombre`, `correo` (único), `contrasena_hash`, `rol` (clave de la tabla `rol`), `estado` (activo, inactivo), `debe_cambiar_clave` (sí o no), `preferencia_tema` (claro u oscuro, sección 11.6) y `alumno_id` (opcional y único: liga una cuenta con rol `alumno` a su alumno, sección 11.8).
 
-**rol***: `clave` (única), `nombre`, `base` (coordinacion, docente, direccion, carga_externa, auxiliar), `permisos` (lista recurso:acción), `es_sistema` (sí o no), `estado` (activo, inactivo), `creado_por`. Detalle en la sección 10.2.
+**rol***: `clave` (única), `nombre`, `base` (coordinacion, docente, direccion, carga_externa, auxiliar, alumno), `permisos` (lista recurso:acción), `es_sistema` (sí o no), `estado` (activo, inactivo), `creado_por`. Detalle en la sección 10.2.
 
 **asignacion_auxiliar***: `usuario_id`, `grupo_id`. Dice qué listas ve cada auxiliar.
 
@@ -50,7 +50,7 @@ Las 16 entidades de G2 más las de soporte que exige el login y la medición (ma
 
 **materia**: `clave`, `nombre`.
 
-**asignacion_docente**: `grupo_id`, `materia_id`, `docente_id`. Única por grupo y materia.
+**asignacion_docente**: `grupo_id`, `materia_id`, `docente_id`, `fecha_limite_entrega` (opcional, sección 11.4). Única por grupo y materia.
 
 **entrega_calificaciones**: `asignacion_id`, `version`, `estado` (borrador, enviada, aceptada, devuelta, reabierta), `responsable_id` (quién la capturó), `captura_excepcional` (sí o no, ruta D03), `fecha_envio`, `fecha_revision`, `revisado_por`, `motivo` (de devolución o reapertura). Una fila por versión.
 
@@ -115,30 +115,30 @@ Pendientes automáticos: al aceptar una entrega, cada calificación menor a 8.0 
 
 V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" quiere decir de sus asignaciones o grupos. La matriz vive en código en `api/permisos.php` y se valida en el servidor.
 
-| Entidad | Coordinación | Docente | Dirección | Carga externa | Auxiliar |
-|---|---|---|---|---|---|
-| periodo | V C M | V | V | V | V |
-| grupo | V C M | V propios | V | V | V propios |
-| alumno | V C M | V de sus grupos | V | · | V de sus grupos |
-| inscripcion_grupo | V C M (alta y baja) | V de sus grupos | V | · | V de sus grupos |
-| usuario | V C M (solo rol del sistema) | · | V (sin correos) | · | · |
-| rol* | V C M (solo rol del sistema) | · | V | · | · |
-| materia | V C M | V propias | V | V | · |
-| asignacion_docente | V C M | V propias | V | · | · |
-| decision_evaluacion | V C | V propias | V M (solo las que requieren autorización) | · | · |
-| entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | V | · | · |
-| calificacion | V | V C M propias en borrador | V | · | · |
-| pendiente_academico | V C M | · | V | · | · |
-| cierre | V C M | · | V M (solo en autorización) | V aprobados | · |
-| documento_academico | V C | · | V | · | · |
-| lote_entrega | V C | · | V | V | · |
-| registro_carga_externa | V | · | V | V C M | · |
-| bitacora_cambio | V | · | V | · | · |
-| metrica_caso | V C | · | V | · | · |
+| Entidad | Coordinación | Docente | Dirección | Carga externa | Auxiliar | Alumno |
+|---|---|---|---|---|---|---|
+| periodo | V C M | V | V | V | V | V |
+| grupo | V C M | V propios | V | V | V propios | V propios |
+| alumno | V C M | V de sus grupos | V | · | V de sus grupos | V solo él |
+| inscripcion_grupo | V C M (alta y baja) | V de sus grupos | V | · | V de sus grupos | · |
+| usuario | V C M (solo rol del sistema) | · | V | · | · | · |
+| rol* | V C M (solo rol del sistema) | · | V | · | · | · |
+| materia | V C M | V propias | V | V | · | · |
+| asignacion_docente | V C M | V propias | V | · | · | · |
+| decision_evaluacion | V C | V propias | V M (solo las que requieren autorización) | · | · | V solo su resultado |
+| entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | V | · | · | · |
+| calificacion | V | V C M propias en borrador | V | · | · | V propias aceptadas |
+| pendiente_academico | V C M | · | V | · | · | V propios |
+| cierre | V C M | · | V M (solo en autorización) | V aprobados | · | · |
+| documento_academico | V C | · | V | · | · | · |
+| lote_entrega | V C | · | V | V | · | · |
+| registro_carga_externa | V | · | V | V C M | · | · |
+| bitacora_cambio | V | · | V | · | · | · |
+| metrica_caso | V C | · | V | · | · | · |
 
 Dirección ve todo lo que ve Coordinación en modo consulta (sección 10.7) y solo escribe para autorizar las decisiones y los cierres que se le envían.
 
-Los roles personalizados tienen como máximo los permisos de su rol base en esta matriz, nunca la administración de usuarios ni de roles, ni la vista como otro usuario (sección 10.2).
+El Alumno solo existe con una cuenta creada por Coordinación (11.8) y nunca ve datos de otra persona. Los roles personalizados no pueden tener base Alumno y tienen como máximo los permisos de su rol base en esta matriz, nunca la administración de usuarios ni de roles, ni la vista como otro usuario (sección 10.2).
 
 Nadie puede: firmar documentos, escribir en la plataforma oficial, borrar registros, editar una entrega aceptada sin reabrir, editar un cierre aprobado, ni ver datos fuera de su rol o asignación. Una petición fuera de la matriz responde 403 y no revela si el registro existe.
 
@@ -171,10 +171,11 @@ Nadie puede: firmar documentos, escribir en la plataforma oficial, borrar regist
 | Dirección | Autorizaciones · Bitácora |
 | Carga externa | Lotes recibidos |
 | Auxiliar | Mis listas |
+| Alumno | Tablero · Historial (su boleta) · Calendario · Avisos · Cuenta |
 | Rol personalizado | Las pantallas de su rol base para las que tiene el permiso que la pantalla necesita |
 | Todos | Mi contraseña (desde el menú de la cuenta) |
 
-Inicio de Coordinación muestra: entregas por revisar, decisiones esperando a Dirección, grupos listos para cierre y lotes con discrepancias, cada uno con un clic a su pantalla.
+Desde la sección 11 todos los roles entran al Tablero y la navegación se organiza como plataforma escolar; esta tabla lista las pantallas que existen. El antiguo Inicio de Coordinación mostraba: entregas por revisar, decisiones esperando a Dirección, grupos listos para cierre y lotes con discrepancias, cada uno con un clic a su pantalla.
 
 Tareas frecuentes y clics máximos (regla de tres clics): revisar una entrega (2), devolver con motivo (3), consultar el historial de un alumno (2), enviar calificaciones como docente (3), registrar recepción de un lote (2).
 
@@ -208,6 +209,13 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 | CA-22 | Una persona pide restablecer su contraseña desde la pantalla de entrada | Coordinación autoriza la solicitud; antes de eso nadie recibió enlace | Sin autorización no existe enlace; al autorizar sale uno solo, sirve una vez y cierra sus sesiones; un correo inexistente recibe la misma respuesta y no crea solicitud visible |
 | CA-23 | Coordinación registra "sin derecho" con motivo y evidencia para un alumno de POS-01 | Docente A abre su asignación y pide la decisión por API | Ve al alumno como "sin derecho" pero la respuesta no trae motivo ni evidencia; Auxiliar y Carga externa no ven la decisión |
 | CA-24 | Sin sesión se piden listas, alumnos, historial, lotes y bitácora; Docente A busca un alumno que no es de sus grupos; Dirección pide un historial e intenta dar de alta un alumno | Revisión de las respuestas | Sin sesión todo responde 401 sin datos; el buscador del docente no lo encuentra; Dirección lee el historial y su intento de escribir responde 403 |
+| CA-25 | Cada rol abre su Tablero | Revisión de lo que trae | Cada rol recibe tarjetas y Por hacer de su alcance y nada fuera de él: Docente A solo su asignación, Auxiliar sin Por hacer, Carga externa sin tarjetas y solo con lotes, Dirección solo autorizaciones |
+| CA-26 | Docente A y Docente B piden el calendario | Revisión de los eventos | Cada docente ve solo las fechas límite de sus asignaciones y los eventos de sus grupos; filtrar por un grupo ajeno responde 403 |
+| CA-27 | Coordinación devuelve una entrega de Docente A con motivo | Docente A, Docente B y Coordinación abren Avisos | Solo Docente A recibe el aviso, sin el motivo ni datos sensibles; marcarlo como leído baja el contador; marcar el aviso de otra persona responde 403 |
+| CA-28 | Coordinación y Dirección piden la sábana de calificaciones de un grupo, en pantalla y en CSV | Docente, Auxiliar y Carga externa la piden | Coordinación y Dirección la reciben; los otros tres reciben 403 |
+| CA-29 | Una cuenta de Alumno abre su Tablero y su historial mientras hay entregas en borrador y enviadas | Revisión de lo que ve | Solo ve calificaciones de entregas aceptadas y solo las suyas; el resultado de su derecho a evaluación sin motivo ni evidencia |
+| CA-30 | La cuenta de Alumno pide el historial de otro alumno, la lista de un grupo y la bitácora | Revisión de las respuestas | Las tres responden 403 |
+| CA-31 | Coordinación acepta una entrega | La cuenta de Alumno abre Avisos | Recibe el aviso de calificaciones publicadas, sin valores; el alumno sin cuenta no genera nada |
 
 ## 8. Supuestos que hay que confirmar con la Escuela
 
@@ -232,7 +240,7 @@ Cosas que la construcción necesitó y que la especificación no decía. Cada un
 7. **Pendientes manuales.** Coordinación puede agregar un pendiente de tipo `manual` (con motivo) y resolver cualquier pendiente abierto con un texto; las dos cosas van a la bitácora.
 8. **Cierre.** Solo hay un cierre en curso (preparado o en autorización) por grupo. Preparar una versión nueva con un cierre aprobado exige motivo y deja el anterior como reemplazado. Al aprobar se vuelve a comprobar que las entregas sigan aceptadas (salvo excepción registrada). Documentos y lote se generan en una sola acción de Coordinación, porque Dirección aprueba pero no genera documentos.
 9. **Traspaso.** Un registro de carga externa por lote: la recepción lo crea (`recibido`) y la carga lo cierra como `cargado` o `con_discrepancias` (texto obligatorio). Después de cerrado no se vuelve a editar.
-10. **Inicio por rol.** Solo Coordinación tiene Inicio con contadores. Los demás roles entran directo a su primera pantalla del menú (sección 6).
+10. **Inicio por rol.** Reemplazada por la sección 11: todos los roles entran al Tablero; los contadores de Coordinación pasan a su columna Por hacer.
 11. **Reinicio de la semilla.** Solo en local, con `scripts/reiniciar-semilla.sh`; no existe endpoint de reinicio.
 12. **Administración, detalles de construcción.** La clave de un rol personalizado es `rol_` más 8 caracteres al azar y su base no se cambia después de crearlo. Autorizaciones pide `decision_evaluacion:ver` y base Dirección (para que un rol de solo ver la vea; resolver sigue pidiendo `modificar`). Rutas de apoyo: `GET /docentes`, `GET /materias` y `GET /ajustes-publicos` (la entrada decide si muestra la franja de datos ficticios). El grupo solo cambia de periodo si no tiene lista ni asignaciones.
 
@@ -325,12 +333,13 @@ Reglas:
 1. El docente ve el resultado del derecho a evaluación de sus alumnos (con derecho, sin derecho, pendiente) para saber a quién no calificar, pero nunca el motivo ni la evidencia. Sí ve el motivo cuando le devuelven su propia entrega.
 2. El docente no ve historial, pendientes ni calificaciones de otras materias o grupos, y el buscador solo le encuentra alumnos de sus grupos.
 3. El Auxiliar ve nombre y matrícula de los grupos que tiene asignados, nada más.
-4. Dirección ve todo lo que ve Coordinación, en modo consulta, y autoriza los casos que se le envían. No crea ni modifica nada más, ni usa "ver como". De Usuarios y roles solo consulta, sin los correos (regla 6).
+4. Dirección ve todo lo que ve Coordinación, en modo consulta, y autoriza los casos que se le envían. No crea ni modifica nada más, ni usa "ver como". De Usuarios y roles solo consulta.
 5. Carga externa ve únicamente los lotes de cierres aprobados, con los campos del lote; no ve motivos ni historiales.
-6. Los correos de las cuentas solo los ve Coordinación (Dirección consulta las cuentas y los roles sin ellos).
+6. Los correos de las cuentas los ven Coordinación y Dirección (decisión del 23 de noviembre de 2026: "Dirección ve todo"). Ningún otro rol los ve.
 7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
 8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven solo en `seguridad/`, fuera de git y del hosting.
 9. Los roles personalizados heredan estos límites de su rol base; ninguno puede ver más que su base.
+10. El Alumno ve solo sus propios datos: sus calificaciones de entregas aceptadas, el resultado (nunca el motivo ni la evidencia) de su derecho a evaluación, su boleta y sus pendientes. Nunca ve a otro alumno, listas, bitácora, correos, lotes ni los detalles internos de un cierre.
 
 ## 11. Experiencia de uso tipo Canvas
 
@@ -385,3 +394,23 @@ Nombre, correo (solo lectura), rol, Mi contraseña, preferencia de tema claro u 
 ### 11.7 Historial del alumno
 
 Vista tipo boleta por periodo: materias, calificación aceptada vigente, estatus y pendientes abiertos y resueltos, con acceso desde Personas y desde el buscador. Reglas de 10.7.
+
+### 11.1 bis Estructura de pantalla
+
+Referencia: la estructura de Canvas (no su marca, colores ni textos).
+
+- Barra global angosta y oscura a la izquierda, con la marca "EJ" arriba, después Cuenta, Tablero, Grupos, Calendario, Avisos (con número) e Historial; abajo Ayuda y una flecha para contraer.
+- Dentro de un grupo: barra superior con botón para contraer el menú de secciones y migas "periodo > grupo > sección"; a la izquierda una lista de texto sin íconos (la sección activa lleva una regla fina a la izquierda y negritas, y los conteos van en insignias grises, por ejemplo entregas por revisar); al centro el contenido; a la derecha una columna de unos 260 px con enlaces rápidos, Por hacer, Próximas fechas y Actividad reciente.
+- Inicio del grupo: tarjeta sólida con "Programa · periodo", la clave del grupo y una línea; debajo, botones de lo esencial y el resumen de estado.
+- Tablero: vista de tarjetas (por omisión) y vista de agenda por fecha, con un interruptor.
+
+### 11.8 Cuenta de Alumno
+
+Decisión del 23 de noviembre de 2026 (Marcos): el alumno tiene cuenta. Esto reabre la exclusión de G2 "Portal para alumnos" solo en esta forma; las demás exclusiones siguen igual.
+
+- Rol del sistema `alumno`. La cuenta se liga a un alumno con `usuario.alumno_id` (único). Solo Coordinación la crea: "Invitar al alumno" desde Personas o Historial, con el correo del alumno (`alumno.correo`) y el mismo flujo de invitación de 10.6. Dirección solo consulta; nadie se registra solo.
+- Ve, y el servidor lo hace cumplir con su `alumno_id`: su Tablero (tarjetas de sus grupos y materias del periodo, con la calificación aceptada y el resultado de su derecho a evaluación); su boleta e historial por periodo con sus pendientes; su calendario (fechas del periodo y del cierre de sus grupos, no las de entrega de los docentes); sus avisos (por ejemplo "se publicaron tus calificaciones de una materia", sin el valor) y su Cuenta.
+- Solo ve calificaciones de entregas aceptadas vigentes: un borrador o una entrega enviada no existe para él.
+- Nunca ve a otro alumno ni una lista, ni motivos ni evidencias, ni bitácora, ni correos, ni lotes ni el detalle interno de un cierre; de un docente solo el nombre.
+- "Ver como" funciona sobre una cuenta de Alumno.
+- Ninguna ruta de escritura sirve a esta cuenta salvo cambiar su contraseña, su tema, cerrar sus sesiones y marcar sus avisos.
