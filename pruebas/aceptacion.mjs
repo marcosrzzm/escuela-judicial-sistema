@@ -1,21 +1,26 @@
 // Criterios de aceptación CA-01 a CA-14 (especificación, sección 7) contra la API local.
-// Uso: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
+// Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
+// Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
+//   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..')
-const env = Object.fromEntries(
+const REMOTO = process.env.ACEPTACION_URL?.replace(/\/$/, '')
+const env = REMOTO ? {} : Object.fromEntries(
   readFileSync(join(raiz, '.env'), 'utf8')
     .split('\n')
     .filter((l) => l.includes('=') && !l.startsWith('#'))
     .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]),
 )
-const BASE = `http://localhost:${env.API_PUERTO ?? 8080}/api`
-const CLAVE = 'Prueba2026'
+const BASE = REMOTO ? `${REMOTO}/api` : `http://localhost:${env.API_PUERTO ?? 8080}/api`
+const CLAVES = REMOTO
+  ? Object.fromEntries([...readFileSync(join(raiz, 'seguridad/accesos-demo.md'), 'utf8').matchAll(/- (\S+) : (\S+)/g)].map((m) => [m[1], m[2]]))
+  : {}
 
-execFileSync('bash', [join(raiz, 'scripts/reiniciar-semilla.sh')], { stdio: 'pipe' })
+if (!REMOTO) execFileSync('bash', [join(raiz, 'scripts/reiniciar-semilla.sh')], { stdio: 'pipe' })
 
 class Cliente {
   cookie = ''
@@ -41,7 +46,7 @@ class Cliente {
 
 async function entrar(correo) {
   const c = new Cliente(correo)
-  const r = await c.post('/login', { correo, clave: CLAVE })
+  const r = await c.post('/login', { correo, clave: CLAVES[correo] ?? 'Prueba2026' })
   if (r.estado !== 200) throw new Error(`No pude entrar como ${correo}: ${r.estado} ${JSON.stringify(r.datos)}`)
   return c
 }

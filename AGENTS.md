@@ -134,7 +134,7 @@ Antes de dar una tarea por terminada: lint, tipos, build y `pruebas/aceptacion.m
 
 ## 8. Cuentas de prueba
 
-Todas son ficticias y solo existen en la semilla. Contraseña común: `Prueba2026`.
+Todas son ficticias y solo existen en la semilla. En local la contraseña de la semilla es la de `sql/90_semilla.sql`; en el temporal cada cuenta tiene la suya, guardada en `seguridad/accesos-demo.md` (fuera de git).
 
 | Correo | Rol | Alcance |
 |---|---|---|

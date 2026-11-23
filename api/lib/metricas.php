@@ -62,7 +62,7 @@ function ruta_metricas(): never
     exigir_permiso('metrica_caso', 'ver');
     $sistema = filas(
         'SELECT g.id AS grupo_id, g.clave AS grupo, pe.nombre AS periodo, t.tipo,
-                COALESCE(m.campos_recapturados, 0) AS campos_recapturados, COALESCE(m.segundos_activos, 0) AS segundos_activos
+                CAST(COALESCE(m.campos_recapturados, 0) AS SIGNED) AS campos_recapturados, CAST(COALESCE(m.segundos_activos, 0) AS SIGNED) AS segundos_activos
          FROM grupo g JOIN periodo pe ON pe.id = g.periodo_id
          CROSS JOIN (SELECT \'lista\' AS tipo UNION SELECT \'cierre\') t
          LEFT JOIN metrica_caso m ON m.origen = \'sistema\' AND m.tipo = t.tipo AND m.grupo_id = g.id

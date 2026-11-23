@@ -194,7 +194,7 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 
 Vienen de los pendientes P04, P10, P11, P12 y P15 del expediente. Mientras no se confirmen, el sistema usa estos valores y los muestra como configurables:
 
-1. Calificación mínima aprobatoria de 8.0 en posgrado (`api/config.php`, `CALIFICACION_MINIMA`).
+1. Calificación mínima aprobatoria de 8.0 en posgrado (`api/ajustes.php`, `CALIFICACION_MINIMA`).
 2. Qué registro es el oficial cuando dos fuentes difieren (P04). En el sistema, la entrega aceptada vigente.
 3. Cuándo un cierre requiere autorización de Dirección. Por ahora lo marca Coordinación caso por caso.
 4. Formato de la boleta y del lote que pide el área de carga externa. Por ahora una vista imprimible y un CSV con matrícula, nombre, materia, calificación y estatus.

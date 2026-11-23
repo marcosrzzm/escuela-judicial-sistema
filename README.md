@@ -10,3 +10,5 @@ Qué leer:
 4. `docs/verificacion-lectura.md`: resumen que hizo un agente leyendo solo estos archivos.
 
 Para correrlo: `scripts/dev.sh` (detalle en `AGENTS.md`, sección 7).
+
+Temporal de validación (desde el 22 nov 2026): https://breezy-lawngreen-cassowary-34.hostingersite.com, en el plan de Elevalia, noindex. Accesos y datos de la base en seguridad/ (fuera de git). Guía para el cliente: docs/guia-validacion.md.

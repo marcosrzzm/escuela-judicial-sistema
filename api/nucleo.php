@@ -7,7 +7,7 @@ declare(strict_types=1);
  * La interfaz esconde lo que un rol no puede hacer; lo que protege es esta capa.
  */
 
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/ajustes.php';
 require_once __DIR__ . '/permisos.php';
 
 $GLOBALS['CONFIG'] = cargar_config();
