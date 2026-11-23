@@ -39,4 +39,4 @@ Fecha: 22 de noviembre de 2026. Sesión nueva de Claude Code (modelo Sonnet), ab
 
 ## Lectura del equipo
 
-El agente identificó los cinco roles con cuenta y al alumno sin cuenta, reprodujo la matriz de permisos de la sección 4, las prohibiciones comunes y las exclusiones de , sección 2, sin ayuda, y además llegó por su cuenta a . Su observación final es correcta: la matriz da el permiso base y los límites de "propias" y "aprobados" se comprueban en cada ruta con , que las pruebas CA-02 y CA-13 de  ejercitan. La captura de esta sesión es .
+El agente identificó los cinco roles con cuenta y al alumno sin cuenta, reprodujo la matriz de permisos de la sección 4, las prohibiciones comunes y las exclusiones de `AGENTS.md`, sección 2, sin ayuda, y además llegó por su cuenta a `api/permisos.php`. Su observación final es correcta: la matriz da el permiso base y los límites de "propias" y "aprobados" se comprueban en cada ruta con `api/lib/alcance.php`, que las pruebas CA-02 y CA-13 de `pruebas/aceptacion.mjs` ejercitan. La captura de esta sesión es `captura-verificacion-lectura.png`.
