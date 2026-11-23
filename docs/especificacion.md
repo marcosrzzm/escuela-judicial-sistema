@@ -228,6 +228,7 @@ Cosas que la construcción necesitó y que la especificación no decía. Cada un
 9. **Traspaso.** Un registro de carga externa por lote: la recepción lo crea (`recibido`) y la carga lo cierra como `cargado` o `con_discrepancias` (texto obligatorio). Después de cerrado no se vuelve a editar.
 10. **Inicio por rol.** Solo Coordinación tiene Inicio con contadores. Los demás roles entran directo a su primera pantalla del menú (sección 6).
 11. **Reinicio de la semilla.** Solo en local, con `scripts/reiniciar-semilla.sh`; no existe endpoint de reinicio.
+12. **Administración, detalles de construcción.** La clave de un rol personalizado es `rol_` más 8 caracteres al azar y su base no se cambia después de crearlo. Autorizaciones pide `decision_evaluacion:ver` y base Dirección (para que un rol de solo ver la vea; resolver sigue pidiendo `modificar`). Rutas de apoyo: `GET /docentes`, `GET /materias` y `GET /ajustes-publicos` (la entrada decide si muestra la franja de datos ficticios). El grupo solo cambia de periodo si no tiene lista ni asignaciones.
 
 
 ## 10. Administración y uso real
