@@ -39,13 +39,12 @@ Lo que se capture durante la validación queda guardado en el sitio; si algo que
 
 El instalador de un solo uso borra todas las tablas: sirve para una base nueva, nunca para una con datos. Para subir la administración y el acceso por correo (migraciones 03 y 04, solo agregan) al temporal ya publicado:
 
-1. Respaldo: exportar la base del temporal (hPanel, phpMyAdmin, Exportar, SQL) a `seguridad/respaldos/AAAA-MM-DD.sql`. Sin ese archivo el comando siguiente se niega.
-2. `scripts/publicar.sh` y subir `publicar/` como siempre (la API nueva ya incluye la guardia de la 03; hasta aplicarla, entrar fallaría, así que 3 y 4 van seguidos).
-3. Subir `scripts/migrar-remoto.php` con un nombre aleatorio y la carpeta `_sql/` con `sql/03_administracion.sql` y `sql/04_acceso_por_correo.sql`, con el hash del token puesto en lugar de `__TOKEN_HASH__` (igual que el instalador). Guardar su URL y token en `seguridad/destino.json`.
-4. `node scripts/migrar-base.mjs --estado` debe decir `PENDIENTE 03_administracion.sql` o `PENDIENTE 04_acceso_por_correo.sql` (solo corre la que falta); luego `node scripts/migrar-base.mjs --aplicar --respaldo seguridad/respaldos/<volcado>.sql`. Revisar que `antes` y `despues` traigan los mismos conteos y `roles` sea 5. Se puede repetir sin efecto.
-5. Llamar `accion=borrar` para que el migrador se elimine, y comprobar el inicio de sesión con cada cuenta de demostración.
+1. Respaldo, sin phpMyAdmin. Subir `scripts/migrar-remoto.php` con un nombre aleatorio y la carpeta `_sql/` con `sql/03_administracion.sql` y `sql/04_acceso_por_correo.sql`, con el hash del token puesto en lugar de `__TOKEN_HASH__` (igual que el instalador), y guardar su URL y token en `seguridad/destino.json`. Luego `node scripts/migrar-base.mjs --respaldar`: guarda el volcado (tablas, datos y disparadores) en `seguridad/respaldos/AAAA-MM-DD-HHMM.sql` e imprime solo la ruta, el tamaño y las filas por tabla. Sin ese archivo el paso 3 se niega.
+2. `scripts/publicar.sh` y subir `publicar/` como siempre (la API nueva ya incluye la guardia de la 03; hasta aplicarla, entrar fallaría, así que 2 y 3 van seguidos).
+3. `node scripts/migrar-base.mjs --estado` debe decir `PENDIENTE 03_administracion.sql` o `PENDIENTE 04_acceso_por_correo.sql` (solo corre la que falta); luego `node scripts/migrar-base.mjs --aplicar --respaldo seguridad/respaldos/<volcado>.sql`. Revisar que `antes` y `despues` traigan los mismos conteos y `roles` sea 5. Se puede repetir sin efecto.
+4. Llamar `accion=borrar` para que el migrador se elimine, y comprobar el inicio de sesión con cada cuenta de demostración.
 
-Probado en local sobre una base con la semilla anterior: aplica dos veces sin error y sin cambiar datos. No se ha ejecutado en el hosting.
+Probado en local sobre una base con la semilla anterior: aplica dos veces sin error y sin cambiar datos, y el respaldo se restaura en otra base con las mismas filas por tabla y los mismos disparadores. No se ha ejecutado en el hosting.
 
 ## Correo de invitaciones y restablecimiento
 
