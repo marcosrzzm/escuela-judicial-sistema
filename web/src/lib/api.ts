@@ -506,13 +506,15 @@ export const verComo = (usuarioId: number) => enviar<{ ok: true }>(`/ver-como/${
 export const salirDeVerComo = () => enviar<{ ok: true }>('/ver-como/salir')
 
 export type DatosUsuario = { nombre: string; correo: string; rol: string }
-export type AltaUsuario = { id: number; correo_enviado?: boolean; clave_temporal?: string }
+/** `modo_prueba`: el correo no salió porque el destinatario no está permitido; trae el enlace para seguir. */
+export type CorreoEnviado = { correo_enviado: boolean; modo_prueba?: boolean; enlace?: string }
+export type AltaUsuario = { id: number; clave_temporal?: string } & Partial<CorreoEnviado>
 export const crearUsuario = (datos: DatosUsuario & { invitar: boolean }) =>
   enviar<AltaUsuario>('/usuarios', datos)
 export const reenviarInvitacion = (id: number) =>
-  enviar<{ correo_enviado: boolean }>(`/usuarios/${id}/invitacion`)
+  enviar<CorreoEnviado>(`/usuarios/${id}/invitacion`)
 export const enviarEnlaceRestablecer = (id: number) =>
-  enviar<{ correo_enviado: boolean }>(`/usuarios/${id}/enlace-restablecer`)
+  enviar<CorreoEnviado>(`/usuarios/${id}/enlace-restablecer`)
 
 export type SolicitudAcceso = {
   id: number
@@ -522,7 +524,7 @@ export type SolicitudAcceso = {
   creado_en: string
 }
 export const autorizarSolicitud = (id: number) =>
-  actualizar<{ correo_enviado: boolean }>(`/solicitudes-acceso/${id}/autorizar`)
+  actualizar<CorreoEnviado>(`/solicitudes-acceso/${id}/autorizar`)
 export const rechazarSolicitud = (id: number, motivo: string) =>
   actualizar<{ ok: true }>(`/solicitudes-acceso/${id}/rechazar`, { motivo })
 

@@ -55,6 +55,9 @@ function cargar_config(): array
         'resend_llave' => $valores['RESEND_API_KEY'] ?? '',
         'correo_remitente' => $valores['CORREO_REMITENTE'] ?? '',
         'sitio_url' => rtrim($valores['SITIO_URL'] ?? '', '/'),
+        // Lista de destinatarios permitidos mientras DATOS_FICTICIOS esté encendido: dominios completos o correos exactos.
+        'correo_permitidos' => array_values(array_filter(array_map(static fn ($v) => strtolower(trim($v)), explode(',', $valores['CORREO_PERMITIDOS'] ?? '')))),
+        'correo_tope_diario' => max(0, (int) ($valores['CORREO_TOPE_DIARIO'] ?? 50)),
         'web_puerto' => (int) ($valores['WEB_PUERTO'] ?? 5173),
         'cookie' => 'ej_sesion',
         'horas_sesion' => 8,

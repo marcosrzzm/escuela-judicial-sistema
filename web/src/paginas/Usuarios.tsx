@@ -30,6 +30,7 @@ import {
 } from '@/esquemas/administracion'
 import {
   autorizarSolicitud,
+  type AltaUsuario,
   crearRol,
   crearUsuario,
   editarRol,
@@ -40,6 +41,7 @@ import {
   reenviarInvitacion,
   restablecerClave,
   verComo,
+  type CorreoEnviado,
   type Grupo,
   type Resultado,
   type Rol,
@@ -55,7 +57,14 @@ import { useSesion } from '@/lib/sesion'
 
 // ─── Contraseña temporal: se muestra una sola vez ───────────────────────────────
 
-type ClaveParaMostrar = { nombre: string; clave: string; correoFallo?: boolean }
+/** Lo que se muestra una sola vez cuando el correo no salió: la contraseña temporal y, en modo de prueba, el enlace. */
+type ClaveParaMostrar = {
+  nombre: string
+  clave?: string
+  enlace?: string
+  modoPrueba?: boolean
+  correoFallo?: boolean
+}
 
 function DialogoClaveTemporal({
   datos,
@@ -65,32 +74,49 @@ function DialogoClaveTemporal({
   alCerrar: () => void
 }) {
   const [copiada, setCopiada] = useState(false)
+  const valor = datos?.clave ?? datos?.enlace ?? ''
   return (
     <Dialog open={datos !== null} onOpenChange={(a) => !a && alCerrar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Contraseña temporal de {datos?.nombre}</DialogTitle>
+          <DialogTitle>
+            {datos?.clave
+              ? `Contraseña temporal de ${datos.nombre}`
+              : `Enlace para ${datos?.nombre}`}
+          </DialogTitle>
           <DialogDescription>
-            {datos?.correoFallo ? 'La cuenta quedó creada, pero el correo no salió. ' : ''}
-            Entrégasela a la persona. Se muestra esta única vez y no se guarda en ningún lado; al
-            entrar tendrá que cambiarla.
+            {datos?.modoPrueba
+              ? 'Modo de prueba: el correo no se envió. '
+              : datos?.correoFallo
+                ? 'La cuenta quedó creada, pero el correo no salió. '
+                : ''}
+            {datos?.clave
+              ? 'Entrégasela a la persona. Se muestra esta única vez y no se guarda en ningún lado; al entrar tendrá que cambiarla.'
+              : 'Pásaselo a la persona. Se muestra esta única vez y sirve una sola vez.'}
           </DialogDescription>
         </DialogHeader>
-        <p className="rounded-lg border border-line bg-paper-2 px-4 py-3 text-center font-mono text-xl tracking-wider select-all">
-          {datos?.clave}
-        </p>
+        {datos?.clave ? (
+          <p className="rounded-lg border border-line bg-paper-2 px-4 py-3 text-center font-mono text-xl tracking-wider select-all">
+            {datos.clave}
+          </p>
+        ) : null}
+        {datos?.enlace ? (
+          <p className="rounded-lg border border-line bg-paper-2 px-4 py-3 font-mono text-xs break-all select-all">
+            {datos.enlace}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
             onClick={() => {
-              void navigator.clipboard.writeText(datos?.clave ?? '').then(() => setCopiada(true))
+              void navigator.clipboard.writeText(valor).then(() => setCopiada(true))
             }}
           >
-            {copiada ? 'Copiada' : 'Copiar'}
+            {copiada ? 'Copiado' : 'Copiar'}
           </Button>
           <Button type="button" onClick={alCerrar}>
-            Ya la anoté
+            Listo
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -140,17 +166,25 @@ function DialogoUsuario({
         rol: v.rol,
         invitar: v.invitar,
       })
-      if (r.ok && r.datos.clave_temporal)
-        alClaveTemporal({ nombre: v.nombre, clave: r.datos.clave_temporal, correoFallo: v.invitar })
+      if (r.ok && (r.datos.clave_temporal || r.datos.enlace))
+        alClaveTemporal({
+          nombre: v.nombre,
+          clave: r.datos.clave_temporal,
+          enlace: r.datos.enlace,
+          modoPrueba: r.datos.modo_prueba,
+          correoFallo: v.invitar,
+        })
       return r
     },
     {
-      exito: (r, v) =>
+      exito: (r: Partial<AltaUsuario>, v) =>
         usuario
           ? `Cuenta de ${v.nombre} actualizada`
-          : 'correo_enviado' in r && r.correo_enviado
-            ? `Invitación enviada a ${v.correo}`
-            : `Cuenta de ${v.nombre} creada`,
+          : r.modo_prueba
+            ? 'Modo de prueba: el correo no se envió'
+            : r.correo_enviado
+              ? `Invitación enviada a ${v.correo}`
+              : `Cuenta de ${v.nombre} creada`,
       alExito: alCerrar,
     },
   )
@@ -298,16 +332,23 @@ function DialogoGruposAuxiliar({
 
 // ─── Solicitudes de acceso ──────────────────────────────────────────────────────
 
-/** Si el servidor hizo la acción pero el correo no salió, se avisa como error para que se note. */
+/**
+ * El servidor ya hizo la acción. Si el correo no salió por un fallo se avisa como error para que se note;
+ * en modo de prueba no es fallo: el enlace llega aparte y se muestra.
+ */
 async function avisarSiNoSalio(
-  llamada: Promise<Resultado<{ correo_enviado: boolean }>>,
+  llamada: Promise<Resultado<CorreoEnviado>>,
   mensaje: string,
-): Promise<Resultado<{ correo_enviado: boolean }>> {
+): Promise<Resultado<CorreoEnviado>> {
   const r = await llamada
-  return r.ok && !r.datos.correo_enviado ? { ok: false, codigo: 200, error: mensaje } : r
+  return r.ok && !r.datos.correo_enviado && !r.datos.modo_prueba
+    ? { ok: false, codigo: 200, error: mensaje }
+    : r
 }
 
-function SolicitudesAcceso() {
+const AVISO_PRUEBA = 'Modo de prueba: el correo no se envió'
+
+function SolicitudesAcceso({ alEnlace }: { alEnlace: (d: ClaveParaMostrar) => void }) {
   const lista = useDatos<{ filas: SolicitudAcceso[] }>('/solicitudes-acceso')
   const [rechazo, setRechazo] = useState<SolicitudAcceso | null>(null)
   const autorizar = useAccion(
@@ -316,7 +357,12 @@ function SolicitudesAcceso() {
         autorizarSolicitud(x.id),
         'Quedó autorizada y se cerraron sus sesiones, pero el correo no salió. Usa Enviar enlace en su cuenta o dale una contraseña temporal.',
       ),
-    { exito: (_r, x) => `Enlace enviado a ${x.correo}` },
+    {
+      exito: (r, x) => (r.modo_prueba ? AVISO_PRUEBA : `Enlace enviado a ${x.correo}`),
+      alExito: (r, x) => {
+        if (r.modo_prueba) alEnlace({ nombre: x.nombre, enlace: r.enlace, modoPrueba: true })
+      },
+    },
   )
   const rechazar = useAccion(
     (v: { x: SolicitudAcceso; motivo: string }) => rechazarSolicitud(v.x.id, v.motivo),
@@ -395,7 +441,12 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
         reenviarInvitacion(u.id),
         'El correo no salió. Dale una contraseña temporal con el botón Contraseña.',
       ),
-    { exito: (_r, u) => `Invitación reenviada a ${u.correo}` },
+    {
+      exito: (r, u) => (r.modo_prueba ? AVISO_PRUEBA : `Invitación reenviada a ${u.correo}`),
+      alExito: (r, u) => {
+        if (r.modo_prueba) setClave({ nombre: u.nombre, enlace: r.enlace, modoPrueba: true })
+      },
+    },
   )
   const enlace = useAccion(
     (u: Usuario) =>
@@ -403,7 +454,12 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
         enviarEnlaceRestablecer(u.id),
         'El correo no salió. Dale una contraseña temporal con el botón Contraseña.',
       ),
-    { exito: (_r, u) => `Enlace enviado a ${u.correo}` },
+    {
+      exito: (r, u) => (r.modo_prueba ? AVISO_PRUEBA : `Enlace enviado a ${u.correo}`),
+      alExito: (r, u) => {
+        if (r.modo_prueba) setClave({ nombre: u.nombre, enlace: r.enlace, modoPrueba: true })
+      },
+    },
   )
   const reiniciar = useAccion((u: Usuario) => restablecerClave(u.id), {
     exito: (_r, u) => `Contraseña temporal nueva para ${u.nombre}`,
@@ -474,7 +530,7 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
           Cuenta nueva
         </Button>
       </div>
-      <SolicitudesAcceso />
+      <SolicitudesAcceso alEnlace={setClave} />
       {lista.error ? <ErrorDatos error={lista.error} reintentar={lista.reintentar} /> : null}
       {lista.cargando ? <Cargando /> : null}
       {lista.datos ? (

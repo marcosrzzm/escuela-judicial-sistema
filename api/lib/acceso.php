@@ -36,38 +36,74 @@ function marca_correo(): array
     ];
 }
 
+/** Con datos ficticios, solo se manda de verdad a las direcciones o dominios de CORREO_PERMITIDOS. */
+function destinatario_permitido(string $correo): bool
+{
+    if (!DATOS_FICTICIOS) {
+        return true;
+    }
+    $correo = strtolower($correo);
+    $dominio = substr($correo, (int) strrpos($correo, '@') + 1);
+    foreach (config('correo_permitidos') as $p) {
+        if ($p === $correo || $p === $dominio || $p === '@' . $dominio) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Correos que salieron hoy (UTC), contados en la bitácora. */
+function correos_enviados_hoy(): int
+{
+    return (int) fila(
+        'SELECT COUNT(*) AS n FROM bitacora_cambio WHERE accion IN (\'invitacion_enviada\', \'invitacion_reenviada\', \'restablecer_enviado\') AND fecha >= ?',
+        [gmdate('Y-m-d 00:00:00')]
+    )['n'];
+}
+
 /**
- * Manda el correo de un enlace. Devuelve false si no pudo salir; nunca lanza: quien llama ya guardó el dato
- * y la pantalla ofrece la contraseña temporal. Sin llave, solo en local se escribe en seguridad/correos-dev/.
+ * Manda el correo de un enlace. Devuelve 'enviado', 'prueba' (modo de prueba: el destinatario no está permitido y
+ * no salió nada; trae el enlace para que la demostración siga) o 'fallo'. Nunca lanza: quien llama ya guardó el
+ * dato y la pantalla ofrece la contraseña temporal. Sin llave, solo en local se escribe en seguridad/correos-dev/.
  */
-function enviar_correo_acceso(string $tipo, array $destino, string $token, array $admin): bool
+function enviar_correo_acceso(string $tipo, array $destino, string $token, array $admin): array
 {
     $base = url_base();
     $remitente = (string) config('correo_remitente');
     if ($base === '') {
-        return false;
+        return ['estado' => 'fallo'];
     }
-    $ruta = $tipo === 'invitacion' ? '/crear-clave' : '/restablecer';
+    if (correos_enviados_hoy() >= (int) config('correo_tope_diario')) {
+        error_log('Correo de acceso no enviado: tope diario');
+        return ['estado' => 'fallo'];
+    }
+    $enlace = $base . ($tipo === 'invitacion' ? '/crear-clave' : '/restablecer') . '?t=' . $token;
     $marca = marca_correo();
-    [$asunto, $campos] = correo_armar($tipo, $marca, (string) $admin['nombre'], $base . $ruta . '?t=' . $token);
+    [$asunto, $campos] = correo_armar($tipo, $marca, (string) $admin['nombre'], $enlace);
     $llave = (string) config('resend_llave');
+    $local = config('entorno') === 'local';
     try {
-        if ($llave !== '' && $remitente !== '') {
-            return correo_resend($llave, '"Sistema escolar · Escuela Judicial" <' . $remitente . '>', [(string) $destino['correo']], $asunto, $campos, (string) $admin['correo'], [], false, $marca);
+        $real = $llave !== '' && $remitente !== '';
+        if ($real && destinatario_permitido((string) $destino['correo'])) {
+            return ['estado' => correo_resend($llave, '"Sistema escolar · Escuela Judicial" <' . $remitente . '>', [(string) $destino['correo']], $asunto, $campos, (string) $admin['correo'], [], false, $marca) ? 'enviado' : 'fallo'];
         }
-        if (config('entorno') !== 'local') {
-            return false;
+        if (!$local) {
+            return $real ? ['estado' => 'prueba', 'enlace' => $enlace] : ['estado' => 'fallo'];
         }
         $carpeta = dirname(__DIR__, 2) . '/seguridad/correos-dev';
         if (!is_dir($carpeta) && !mkdir($carpeta, 0700, true)) {
-            return false;
+            return ['estado' => 'fallo'];
         }
         $contenido = 'Para: ' . $destino['correo'] . "\nResponder a: " . $admin['correo'] . "\nAsunto: " . $asunto . "\n\n" . correo_texto($asunto, $campos, $marca) . "\n";
         $archivo = $carpeta . '/' . gmdate('Ymd-His') . sprintf('-%06d-', (int) (fmod(microtime(true), 1) * 1000000)) . bin2hex(random_bytes(2)) . '-' . $tipo . '.txt';
-        return file_put_contents($archivo, $contenido) !== false && chmod($archivo, 0600);
+        if (file_put_contents($archivo, $contenido) === false || !chmod($archivo, 0600)) {
+            return ['estado' => 'fallo'];
+        }
+        // Sin llave, el archivo hace de envío; con llave y destinatario no permitido, es modo de prueba.
+        return $real ? ['estado' => 'prueba', 'enlace' => $enlace] : ['estado' => 'enviado'];
     } catch (Throwable $e) {
         error_log('Correo de acceso no enviado: ' . get_class($e));
-        return false;
+        return ['estado' => 'fallo'];
     }
 }
 
@@ -106,13 +142,17 @@ function error_enlace(): never
     error_http(410, 'Este enlace ya se usó o venció. Pide a Coordinación que te mande uno nuevo.');
 }
 
-/** Manda un enlace, lo registra y devuelve si salió el correo. El token no pasa por la bitácora. */
-function mandar_enlace(string $tipo, array $cuenta, array $admin, string $evento): bool
+/**
+ * Manda un enlace, lo registra y devuelve lo que la respuesta debe decir: correo_enviado y, en modo de prueba,
+ * modo_prueba y el enlace (solo para Coordinación). El token no pasa por la bitácora.
+ */
+function mandar_enlace(string $tipo, array $cuenta, array $admin, string $evento): array
 {
     $token = emitir_token((int) $cuenta['id'], $tipo, $tipo === 'invitacion' ? HORAS_INVITACION : HORAS_RESTABLECER, (int) $admin['id']);
-    $enviado = enviar_correo_acceso($tipo, $cuenta, $token, $admin);
-    registrar_bitacora('usuario', (int) $cuenta['id'], $enviado ? $evento : 'correo_no_enviado', null, ['tipo' => $tipo, 'correo' => $cuenta['correo']]);
-    return $enviado;
+    $r = enviar_correo_acceso($tipo, $cuenta, $token, $admin);
+    $enviado = $r['estado'] === 'enviado';
+    registrar_bitacora('usuario', (int) $cuenta['id'], $enviado ? $evento : 'correo_no_enviado', null, ['tipo' => $tipo, 'correo' => $cuenta['correo']] + ($r['estado'] === 'prueba' ? ['motivo' => 'modo de prueba'] : []));
+    return ['correo_enviado' => $enviado] + ($r['estado'] === 'prueba' ? ['modo_prueba' => true, 'enlace' => $r['enlace']] : []);
 }
 
 // --- Rutas públicas --------------------------------------------------------------
@@ -218,7 +258,7 @@ function ruta_autorizar_solicitud(array $a): never
         registrar_bitacora('solicitud_acceso', (int) $s['id'], 'solicitud_autorizada', ['estado' => 'pendiente'], ['estado' => 'autorizada']);
         return $cuenta;
     });
-    responder(200, ['correo_enviado' => mandar_enlace('restablecer', $cuenta, $admin, 'restablecer_enviado')]);
+    responder(200, mandar_enlace('restablecer', $cuenta, $admin, 'restablecer_enviado'));
 }
 
 function ruta_rechazar_solicitud(array $a): never
@@ -256,12 +296,12 @@ function ruta_reenviar_invitacion(array $a): never
     if ((int) $c['debe_cambiar_clave'] !== 1) {
         error_http(409, 'Esa persona ya creó su contraseña. Si la olvidó, mándale un enlace para restablecerla.');
     }
-    responder(200, ['correo_enviado' => mandar_enlace('invitacion', $c, $admin, 'invitacion_reenviada')]);
+    responder(200, mandar_enlace('invitacion', $c, $admin, 'invitacion_reenviada'));
 }
 
 function ruta_enlace_restablecer(array $a): never
 {
     $admin = exigir_admin('usuario', 'modificar');
     $c = cuenta_para_enlace($a, $admin);
-    responder(200, ['correo_enviado' => mandar_enlace('restablecer', $c, $admin, 'restablecer_enviado')]);
+    responder(200, mandar_enlace('restablecer', $c, $admin, 'restablecer_enviado'));
 }

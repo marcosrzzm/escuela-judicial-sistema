@@ -104,8 +104,8 @@ function ruta_crear_usuario(): never
     registrar_bitacora('usuario', $id, 'alta', null, ['nombre' => $nombre, 'correo' => $correo, 'rol' => $rol['clave'], 'estado' => 'activo', 'debe_cambiar_clave' => true]);
     if ($invitar) {
         // Con la invitación la persona crea su contraseña; la temporal solo sale si el correo no pudo salir.
-        $enviado = mandar_enlace('invitacion', ['id' => $id, 'correo' => $correo], $admin, 'invitacion_enviada');
-        responder(200, ['id' => $id, 'correo_enviado' => $enviado] + ($enviado ? [] : ['clave_temporal' => $clave]));
+        $r = mandar_enlace('invitacion', ['id' => $id, 'correo' => $correo], $admin, 'invitacion_enviada');
+        responder(200, ['id' => $id] + $r + ($r['correo_enviado'] ? [] : ['clave_temporal' => $clave]));
     }
     // La contraseña temporal sale solo en esta respuesta; en ningún lado queda en claro.
     responder(200, ['id' => $id, 'clave_temporal' => $clave]);
