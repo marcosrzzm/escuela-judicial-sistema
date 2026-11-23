@@ -20,7 +20,7 @@ Indicadores del piloto: campos recapturados por caso (CA-11) y minutos activos d
 | Auxiliar | `auxiliar` | Apoyo de Coordinación | Consultar e imprimir la lista de sus grupos |
 | Alumno | (sin cuenta) | Beneficiario | No entra al sistema en esta versión |
 
-Un usuario tiene un solo rol. Las cuentas se crean por semilla en el piloto.
+Un usuario tiene un solo rol. Además de estos cinco roles del sistema, Coordinación puede crear roles personalizados a partir de uno de ellos (sección 10.2). Coordinación da de alta las cuentas desde la pantalla Usuarios y roles; la semilla solo trae las cuentas de prueba.
 
 ## 3. Entidades y relaciones
 
@@ -36,7 +36,9 @@ Las 16 entidades de G2 más las de soporte que exige el login y la medición (ma
 
 **inscripcion_grupo**: `alumno_id`, `grupo_id`, `estado` (activa, baja), `fecha_alta`, `fecha_baja`, `observacion`. Índice único lógico: un alumno solo puede tener una inscripción `activa` por grupo (RN-01).
 
-**usuario** (UsuarioRol en G2): `nombre`, `correo` (único), `contrasena_hash`, `rol`, `estado` (activo, inactivo).
+**usuario** (UsuarioRol en G2): `nombre`, `correo` (único), `contrasena_hash`, `rol` (clave de la tabla `rol`), `estado` (activo, inactivo), `debe_cambiar_clave` (sí o no).
+
+**rol***: `clave` (única), `nombre`, `base` (coordinacion, docente, direccion, carga_externa, auxiliar), `permisos` (lista recurso:acción), `es_sistema` (sí o no), `estado` (activo, inactivo), `creado_por`. Detalle en la sección 10.2.
 
 **asignacion_auxiliar***: `usuario_id`, `grupo_id`. Dice qué listas ve cada auxiliar.
 
@@ -74,7 +76,7 @@ El historial del alumno no es una tabla: se arma con las calificaciones de las e
 
 ### 3.6 Soporte*
 
-**sesion***: `usuario_id`, `token_hash`, `expira_en`, `ultimo_uso`. Cookie httpOnly, Secure, SameSite=Strict.
+**sesion***: `usuario_id`, `token_hash`, `expira_en`, `ultimo_uso`, `viendo_como_id` (usuario cuya vista se consulta en modo solo lectura, sección 10.3). Cookie httpOnly, Secure, SameSite=Strict.
 
 **metrica_caso***: `tipo` (lista, cierre), `grupo_id`, `origen` (sistema, linea_base), `campos_recapturados`, `segundos_activos`, `nota`, `registrado_por`, `fecha`.
 
@@ -115,13 +117,14 @@ V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" q
 
 | Entidad | Coordinación | Docente | Dirección | Carga externa | Auxiliar |
 |---|---|---|---|---|---|
-| periodo | V | V | V | V | V |
-| grupo | V | V propios | V | V | V propios |
-| alumno | V C | V de sus grupos | V | · | V de sus grupos |
+| periodo | V C M | V | V | V | V |
+| grupo | V C M | V propios | V | V | V propios |
+| alumno | V C M | V de sus grupos | V | · | V de sus grupos |
 | inscripcion_grupo | V C M (alta y baja) | V de sus grupos | V | · | V de sus grupos |
-| usuario | V | · | · | · | · |
-| materia | V | V propias | V | V | · |
-| asignacion_docente | V | V propias | V | · | · |
+| usuario | V C M (solo rol del sistema) | · | · | · | · |
+| rol* | V C M (solo rol del sistema) | · | · | · | · |
+| materia | V C M | V propias | V | V | · |
+| asignacion_docente | V C M | V propias | V | · | · |
 | decision_evaluacion | V C | V propias | V M (solo las que requieren autorización) | · | · |
 | entrega_calificaciones | V M (aceptar, devolver, reabrir) C (solo captura excepcional) | V C M propias en borrador | V | · | · |
 | calificacion | V | V C M propias en borrador | V | · | · |
@@ -132,6 +135,8 @@ V = ver, C = crear, M = modificar o cambiar estado, · = sin acceso. "Propias" q
 | registro_carga_externa | V | · | V | V C M | · |
 | bitacora_cambio | V | · | V | · | · |
 | metrica_caso | V C | · | V | · | · |
+
+Los roles personalizados tienen como máximo los permisos de su rol base en esta matriz, nunca la administración de usuarios ni de roles, ni la vista como otro usuario (sección 10.2).
 
 Nadie puede: firmar documentos, escribir en la plataforma oficial, borrar registros, editar una entrega aceptada sin reabrir, editar un cierre aprobado, ni ver datos fuera de su rol o asignación. Una petición fuera de la matriz responde 403 y no revela si el registro existe.
 
@@ -159,11 +164,13 @@ Nadie puede: firmar documentos, escribir en la plataforma oficial, borrar regist
 
 | Rol | Pantallas (menú lateral) |
 |---|---|
-| Coordinación | Inicio · Grupos y listas · Derecho a evaluación · Revisión de calificaciones · Historial del alumno · Cierre y lote · Métricas · Bitácora |
+| Coordinación | Inicio · Grupos y listas · Derecho a evaluación · Revisión de calificaciones · Historial del alumno · Cierre y lote · Métricas · Bitácora · Catálogos · Usuarios y roles |
 | Docente | Mis asignaciones (entrega de calificaciones dentro) |
 | Dirección | Autorizaciones · Bitácora |
 | Carga externa | Lotes recibidos |
 | Auxiliar | Mis listas |
+| Rol personalizado | Las pantallas de su rol base para las que tiene el permiso que la pantalla necesita |
+| Todos | Mi contraseña (desde el menú de la cuenta) |
 
 Inicio de Coordinación muestra: entregas por revisar, decisiones esperando a Dirección, grupos listos para cierre y lotes con discrepancias, cada uno con un clic a su pantalla.
 
@@ -189,6 +196,12 @@ Cada criterio se comprueba con dos cuentas de la semilla: la cuenta A hace la ac
 | CA-12 | Coordinación trabaja en la lista y en el cierre de POS-01 | Coordinación abre Métricas | Se ven los minutos activos de ese caso; el tiempo sin actividad de más de 2 minutos no cuenta |
 | CA-13 | Auxiliar pide la lista de POS-02; Docente B pide el historial de un alumno | Coordinación revisa la bitácora | Las dos peticiones responden 403 |
 | CA-14 | Cualquier rol busca una acción para firmar o enviar a la plataforma oficial | Revisión de la API (`api/rutas.php`) | No existe ninguna ruta ni botón que firme o escriba fuera del sistema; los documentos dicen "pendiente de firma institucional" |
+| CA-15 | Coordinación crea la cuenta de un docente nuevo | El docente nuevo entra con su contraseña temporal | Antes de cambiarla, cualquier ruta que no sea cambiar contraseña o salir responde 403; después de cambiarla entra a Mis asignaciones. La alta queda en bitácora sin la contraseña |
+| CA-16 | Coordinación crea un rol "Consulta de Dirección" con base Dirección y solo permisos de ver, y se lo asigna a una cuenta | Esa cuenta intenta resolver una autorización | Ve Autorizaciones y Bitácora pero resolver responde 403. Crear un rol con un permiso fuera de su base, o con administración de usuarios, responde 422 |
+| CA-17 | Coordinación entra a "Ver como" Docente A | Coordinación intenta enviar la entrega de Docente A y después sale; Dirección abre Bitácora | Ve la asignación de Docente A tal como él la ve; enviar responde 403 y la entrega no cambia; los latidos de tiempo activo no se guardan; la bitácora muestra inicio y fin de la vista con Coordinación como responsable |
+| CA-18 | Docente A pide crear un usuario, crear un rol y ver como otro usuario por API | Coordinación revisa la bitácora | Las tres peticiones responden 403 y quedan como acceso denegado |
+| CA-19 | Coordinación desactiva una cuenta con sesión abierta e intenta desactivar a la última Coordinación activa | La cuenta desactivada hace una petición | La cuenta recibe 401 y ya no puede entrar; desactivar a la última Coordinación responde 409 |
+| CA-20 | Coordinación crea periodo, materia y grupo, asigna la materia al docente nuevo e importa la lista de alumnos desde un archivo CSV | El docente nuevo abre Mis asignaciones | Ve la asignación con la lista importada sin capturar nada; las filas repetidas en el mismo grupo se rechazan por RN-01 y el resumen de importación las muestra |
 
 ## 8. Supuestos que hay que confirmar con la Escuela
 
@@ -216,3 +229,59 @@ Cosas que la construcción necesitó y que la especificación no decía. Cada un
 10. **Inicio por rol.** Solo Coordinación tiene Inicio con contadores. Los demás roles entran directo a su primera pantalla del menú (sección 6).
 11. **Reinicio de la semilla.** Solo en local, con `scripts/reiniciar-semilla.sh`; no existe endpoint de reinicio.
 
+
+## 10. Administración y uso real
+
+Decisión del 22 de noviembre de 2026 (Marcos, por el equipo): el sistema debe quedar listo para que la Escuela lo use sin depender de la semilla. Se abre la administración desde pantalla que G2 dejó fuera (exclusión de la sección 6.7) y se registra en `correspondencia-g2.md`, filas 22 a 27. Las demás exclusiones de G2 siguen igual.
+
+### 10.1 Usuarios
+
+Pantalla Usuarios y roles, pestaña Usuarios. Solo para el rol del sistema `coordinacion`.
+
+- Lista con buscador y filtros por rol y estado.
+- Alta: nombre, correo y rol. El sistema genera una contraseña temporal y la muestra una sola vez en pantalla para que Coordinación se la entregue a la persona; no se guarda en claro en ningún lado. La cuenta queda con `debe_cambiar_clave`.
+- Edición: nombre, correo, rol y estado (activo o inactivo). Nada se borra: una baja es inactivar.
+- Restablecer contraseña: genera otra temporal, mostrada una vez, y vuelve a exigir el cambio.
+- Para una cuenta con base Auxiliar, se eligen los grupos cuya lista ve (`asignacion_auxiliar`).
+- Cambiar el rol, inactivar o restablecer la contraseña cierra todas las sesiones de esa cuenta.
+- No se puede inactivar ni quitarle el rol a la última cuenta activa con el rol del sistema `coordinacion` (409).
+- Todo va a la bitácora con valores antes y después, sin contraseñas ni hashes.
+
+Mi contraseña (todos los roles): contraseña actual, nueva y confirmación. Mínimo 10 caracteres y distinta del correo. Mientras una cuenta tenga `debe_cambiar_clave`, el servidor solo le permite ver su sesión, cambiar la contraseña y salir; cualquier otra ruta responde 403.
+
+### 10.2 Roles
+
+Pestaña Roles. Solo para el rol del sistema `coordinacion`.
+
+- Los cinco roles del sistema aparecen como de solo lectura, con sus permisos. Su definición sigue en `api/permisos.php`.
+- Rol nuevo: nombre, rol base y permisos marcados de una lista. La lista solo ofrece los permisos que tiene el rol base en `api/permisos.php`; el servidor rechaza con 422 cualquier otro.
+- Ningún rol personalizado puede tener permisos de `usuario` o `rol` distintos de ver, ni la vista como otro usuario. Eso queda solo en el rol del sistema `coordinacion`.
+- El alcance ("propios", "de sus grupos") lo da el rol base: un rol con base Docente solo toca sus asignaciones y uno con base Auxiliar solo sus grupos. Por eso un rol personalizado nunca rompe RN-03.
+- Un rol se puede editar o inactivar; no se puede inactivar si tiene cuentas activas (409). Cambiar los permisos de un rol cierra las sesiones de sus cuentas.
+- El menú de un rol personalizado muestra las pantallas de su base para las que tiene el permiso que cada pantalla necesita.
+
+### 10.3 Ver como
+
+Coordinación (rol del sistema) elige una cuenta activa en Usuarios y pulsa "Ver como". Desde ese momento ve el sistema exactamente como esa cuenta: menú, pantallas, alcance y datos.
+
+- Es solo lectura y lo hace cumplir el servidor: toda petición que no sea GET responde 403, salvo salir de la vista y cerrar sesión.
+- Los latidos de tiempo activo se descartan mientras dura la vista, para no ensuciar CA-12.
+- Una franja fija arriba dice a quién se está viendo, que es solo lectura y tiene el botón Salir de la vista.
+- El inicio y el fin de la vista van a la bitácora con Coordinación como responsable y la cuenta vista como registro.
+- No se puede ver como uno mismo ni como una cuenta inactiva.
+
+### 10.4 Catálogos
+
+Pantalla Catálogos, para Coordinación (y roles personalizados con base Coordinación que tengan el permiso). Cada alta o cambio va a la bitácora.
+
+- Periodos: alta (nombre, inicio, fin) y cambio de estado abierto o cerrado.
+- Materias: alta y edición de clave y nombre. Clave única.
+- Grupos: alta y edición (periodo, clave, programa, turno) y cambio de estado.
+- Asignaciones: grupo + materia + docente (cuenta activa con base Docente). Una por grupo y materia. Cambiar el docente exige motivo; las entregas ya hechas conservan su responsable.
+- Alumnos: edición de nombre, matrícula y estatus con motivo (el alta ya existía).
+- Importar lista: en Grupos y listas, Coordinación sube un CSV con matrícula y nombre. Crea los alumnos que no existen, inscribe a todos en el grupo y devuelve un resumen de filas creadas, inscritas y rechazadas con su razón (repetidas por RN-01, matrícula vacía o con formato inválido). Nada se escribe si el archivo no se puede leer. Máximo 500 filas.
+
+### 10.5 Primer uso con datos reales
+
+- La franja "Prototipo · datos ficticios" se controla con `DATOS_FICTICIOS` en `api/ajustes.php` y sigue encendida mientras no exista autorización escrita de la Escuela para usar datos reales (sección 8, punto 5).
+- Para arrancar una base sin la semilla: se aplican las migraciones sin `90_semilla.sql` y se crea la primera cuenta de Coordinación con `scripts/crear-coordinacion.php`, que imprime la contraseña temporal solo en la terminal de quien lo corre.

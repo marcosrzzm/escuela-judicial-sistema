@@ -25,5 +25,11 @@ Qué cambió entre la compuerta G2 (`E4_G2_Arquitectura.pdf`, 14 de octubre de 2
 | 19 | Cierre y lote como pasos del flujo | Un cierre en curso por grupo, reemplazo con motivo, reverificación al aprobar, y documentos y lote en una sola acción de Coordinación | Dirección aprueba pero la matriz no le da crear documentos; hace cumplir RN-09 y RN-10 |
 | 20 | Registro de carga externa con recepción, carga y discrepancias | Un registro por lote, que se cierra una sola vez | Evita historiales ambiguos en el traspaso; si la Escuela necesita reintentos se abre una decisión nueva |
 | 21 | Pantallas de Inicio no definidas para todos los roles | Inicio con contadores solo para Coordinación; los demás entran a su primera pantalla | La sección 6 solo define Inicio de Coordinación |
+| 22 | Exclusión 6.7: administración de cuentas, periodos, materias y asignaciones fuera de pantalla | Pantallas Usuarios y roles y Catálogos para Coordinación (especificación, sección 10) | Decisión del 22 de noviembre de 2026: la Escuela debe poder usar el sistema sin depender de la semilla |
+| 23 | Un rol fijo por usuario, seis actores | Cinco roles del sistema más roles personalizados con rol base y permisos dentro de los del base (tabla `rol`) | La Escuela puede tener puestos que no coinciden con los seis actores; el rol base conserva el alcance y RN-03 |
+| 24 | Sin forma de que Coordinación vea lo que ve cada rol | "Ver como" otra cuenta, solo lectura, con bitácora | Permite acompañar y revisar a cada usuario sin compartir contraseñas ni actuar por otro |
+| 25 | Contraseñas definidas en la semilla | Contraseña temporal mostrada una vez, cambio obligatorio y pantalla Mi contraseña | Una cuenta real no puede depender de una contraseña conocida por quien la creó |
+| 26 | Listas cargadas por semilla | Importación de la lista de un grupo desde CSV con resumen de rechazos | Sin esto, dar de alta un grupo real significa recapturar uno por uno, lo contrario de lo que busca el sistema |
+| 27 | Datos ficticios | Franja controlada por `DATOS_FICTICIOS` y script para la primera cuenta en una base sin semilla | Deja listo el cambio a datos reales para cuando exista la autorización escrita, sin cambiar la política actual |
 
-No se quitó nada del alcance de G2.
+No se quitó nada del alcance de G2. Las filas 22 a 27 agregan alcance por decisión registrada; las otras exclusiones de la sección 6.7 siguen igual.

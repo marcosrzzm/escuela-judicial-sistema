@@ -26,7 +26,7 @@ Inicio del flujo: grupo y periodo con lista vigente. Fin: cierre aprobado, docum
 
 ## 2. Lo que NO se construye
 
-Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nueva registrada:
+Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nueva registrada. La administración de cuentas, roles y catálogos desde pantalla se abrió el 22 de noviembre de 2026 (especificación, sección 10; correspondencia, filas 22 a 27):
 
 - Admisión, examen y selección de aspirantes.
 - Captura completa de asistencia y justificantes. Solo se guarda el resultado del derecho a evaluación.
@@ -36,7 +36,6 @@ Estas exclusiones vienen de G2 (sección 6.7) y no se abren sin una decisión nu
 - Migración del histórico de la Escuela.
 - Comunicaciones masivas (correos, avisos a alumnos).
 - Cualquier automatización que tome una decisión académica en lugar de una persona.
-- Administración de cuentas, periodos, materias y asignaciones desde pantalla. En el piloto se cargan por semilla (`sql/90_semilla.sql`).
 - Tokens de agente, conectores o API pública.
 - Datos reales de alumnos o docentes. Todo es ficticio mientras no exista autorización escrita de la Escuela.
 
@@ -96,6 +95,7 @@ Se usa siempre la misma palabra para lo mismo, en la interfaz y en el código.
 | Carga externa | Ve lotes aprobados y registra recepción, carga y discrepancias. No edita nada académico. |
 | Auxiliar | Solo consulta e imprime la lista de los grupos que le corresponden. |
 | Alumno | Beneficiario, sin cuenta en esta versión. |
+| Rol personalizado | Lo crea Coordinación a partir de un rol base, con una parte de sus permisos. |
 
 La matriz completa rol por entidad está en `docs/especificacion.md`, sección 4.
 
@@ -129,6 +129,7 @@ Requisitos locales: Node 22 o superior, PHP 8.3 con `pdo_mysql`, binarios de MyS
 | Criterios de aceptación CA-01 a CA-14 (con la API corriendo) | `node pruebas/aceptacion.mjs` |
 | Compilar | `cd web && npm run build` |
 | Armar la carpeta para el hosting | `scripts/publicar.sh` |
+| Primera cuenta de Coordinación en una base sin semilla | `php scripts/crear-coordinacion.php` |
 
 Antes de dar una tarea por terminada: lint, tipos, build y `pruebas/aceptacion.mjs` en verde.
 
@@ -149,6 +150,6 @@ Todas son ficticias y solo existen en la semilla. En local la contraseña de la 
 
 1. Leer este archivo y `docs/especificacion.md` antes de tocar código.
 2. Cada cambio de alcance, entidad, permiso o regla se anota primero en la especificación y en `docs/correspondencia-g2.md` con su razón.
-3. Un permiso nuevo va en la matriz de la especificación y en `api/permisos.php`. No hay permisos fuera de ese archivo.
+3. Un permiso nuevo va en la matriz de la especificación y en `api/permisos.php`. No hay permisos fuera de ese archivo: los roles personalizados solo eligen entre los permisos que su rol base tiene ahí.
 4. Texto de la interfaz en español de México, sin "—" ni "~".
 5. Commits pequeños, en español, que digan qué cambia para el usuario.
