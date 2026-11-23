@@ -53,4 +53,4 @@ if grep -rIl -e "Prueba2026" -e "DB_CONTRASENA=" publicar | grep -q .; then
   echo "ERROR: publicar/ contiene una credencial" >&2
   exit 1
 fi
-echo "publicar/ listo. Antes de subirla: crear en el hosting ej-config.env un nivel arriba de public_html (ENTORNO=produccion y los datos de la base) y aplicar sql/01 y sql/02 (con respaldo si la base ya tiene datos). La semilla de demostración solo va en el temporal de validación, con contraseñas propias de cada cuenta (seguridad/accesos-demo.md)."
+echo "publicar/ listo. Antes de subirla: crear en el hosting ej-config.env un nivel arriba de public_html (ENTORNO=produccion y los datos de la base) y aplicar sql/01 y sql/02, y sql/03 (aditiva, se puede repetir; con respaldo si la base ya tiene datos). La semilla de demostración solo va en el temporal de validación, con contraseñas propias de cada cuenta (seguridad/accesos-demo.md)."

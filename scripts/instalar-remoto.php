@@ -33,7 +33,7 @@ $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 foreach ($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $t) $pdo->exec("DROP TABLE IF EXISTS `$t`");
 $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
 $n = 0;
-foreach (['01_esquema.sql', '02_bitacora_inmutable.sql', '90_semilla.sql'] as $archivo) {
+foreach (['01_esquema.sql', '02_bitacora_inmutable.sql', '03_administracion.sql', '90_semilla.sql'] as $archivo) {
     $sql = (string) file_get_contents("$sqlDir/$archivo");
     $sql = preg_replace('/^--.*$/m', '', $sql);
     foreach (preg_split('/;\s*\n/', $sql) ?: [] as $st) {
