@@ -55,10 +55,10 @@ export function BotonesSegmentados({
             aria-selected={seleccionada}
             tabIndex={seleccionada ? 0 : -1}
             className={cn(
-              'shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors duration-ui',
+              '-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors duration-ui',
               seleccionada
-                ? 'border-brand font-medium text-ink'
-                : 'border-transparent text-ink-3 hover:text-ink',
+                ? 'border-brand font-semibold text-ink'
+                : 'border-transparent text-ink-3 hover:border-line-strong hover:text-ink',
             )}
           >
             {opcion.etiqueta}

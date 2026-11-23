@@ -34,6 +34,7 @@
   --color-nav-3: var(--nav-3);
   --color-nav-txt: var(--nav-txt);
   --color-nav-on: var(--nav-on);
+  --color-nav-acento: var(--nav-acento);
 
   --color-exito: var(--exito);
   --color-exito-soft: var(--exito-soft);
@@ -63,10 +64,11 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* Esquinas sobrias: una sola escala corta para botones, campos, tarjetas y diálogos. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-pill: 999px;
 
   /* Sombras de dos capas, teñidas del color de marca (no gris puro): así la
@@ -103,6 +105,8 @@
   --nav-3: #3d3e3f;
   --nav-txt: #d6d1c4;
   --nav-on: #ffffff;
+  /* Dorado claro para la regla del elemento activo sobre el menú oscuro (7:1 sobre --nav). */
+  --nav-acento: #c5ab72;
 
   --exito: #0f7b4f;
   --exito-soft: #d9f3e5;
@@ -166,6 +170,7 @@
   --nav-3: #1b222b;
   --nav-txt: #b7c0ca;
   --nav-on: #f5f7fa;
+  --nav-acento: #c5ab72;
 
   --exito: #3fcb8a;
   --exito-soft: #123626;
@@ -213,7 +218,6 @@
   :focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 }
 

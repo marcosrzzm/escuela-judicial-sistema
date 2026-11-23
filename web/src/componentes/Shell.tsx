@@ -72,10 +72,12 @@ function leerMenuCerrado(): boolean {
   }
 }
 
+// El elemento activo se marca con una regla fina de 2 px a la izquierda (no mueve el texto), un fondo
+// apenas más claro y el texto en negrita. Sin esquinas redondeadas, sin degradados ni sombras.
 const CLASES_ENLACE =
-  'flex min-h-11 items-center gap-3 rounded-md border-l-[3px] px-4 text-sm transition-colors duration-ui md:flex-col md:justify-center md:gap-0.5 md:px-1 lg:flex-row lg:justify-start lg:gap-3 lg:px-4'
-const CLASES_ACTIVO = 'border-l-white bg-white/12 font-medium text-nav-on'
-const CLASES_INACTIVO = 'border-l-transparent text-nav-txt hover:bg-white/8 hover:text-nav-on'
+  "relative flex min-h-11 items-center gap-3 px-4 text-sm transition-colors duration-ui before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:content-[''] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-nav-acento md:flex-col md:justify-center md:gap-0.5 md:px-1 lg:flex-row lg:justify-start lg:gap-3 lg:px-4"
+const CLASES_ACTIVO = 'bg-nav-2 font-semibold text-nav-on before:bg-nav-acento'
+const CLASES_INACTIVO = 'text-nav-txt hover:bg-nav-2 hover:text-nav-on'
 
 function ContenidoNavegacion({
   colapsado,
@@ -96,9 +98,9 @@ function ContenidoNavegacion({
   return (
     <div className="flex h-full flex-col bg-nav text-nav-txt">
       <div className="flex h-16 shrink-0 items-center gap-2 border-b border-nav-3 px-4">
-        <div className="grid size-8 shrink-0 place-items-center rounded-md bg-white/15 text-sm font-bold">
+        <span className="shrink-0 font-serif text-xl font-semibold tracking-wide text-nav-on">
           EJ
-        </div>
+        </span>
         {!colapsado ? (
           <span className="truncate font-semibold tracking-tight md:hidden lg:inline">
             Escuela Judicial
@@ -137,7 +139,7 @@ function ContenidoNavegacion({
         <button
           type="button"
           onClick={() => document.dispatchEvent(new CustomEvent('colapsar-sidebar'))}
-          className="hidden min-h-11 w-full items-center gap-3 rounded-md px-2 text-sm text-nav-txt hover:bg-white/8 lg:flex"
+          className="hidden min-h-11 w-full items-center gap-3 px-2 text-sm text-nav-txt hover:bg-nav-2 hover:text-nav-on focus-visible:outline-nav-acento lg:flex"
           aria-label={colapsado ? 'Expandir menú' : 'Colapsar menú'}
         >
           {colapsado ? (
@@ -152,7 +154,7 @@ function ContenidoNavegacion({
             ref={cerrarBtnRef}
             type="button"
             onClick={() => document.dispatchEvent(new CustomEvent('cerrar-sidebar'))}
-            className="hidden min-h-11 w-full items-center gap-3 rounded-md px-2 text-sm text-nav-txt hover:bg-white/8 md:flex"
+            className="hidden min-h-11 w-full items-center gap-3 px-2 text-sm text-nav-txt hover:bg-nav-2 hover:text-nav-on focus-visible:outline-nav-acento md:flex"
             aria-label="Cerrar menú"
           >
             <X className="size-5 shrink-0" strokeWidth={2.4} />
