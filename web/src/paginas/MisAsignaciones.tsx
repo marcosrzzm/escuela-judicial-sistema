@@ -147,7 +147,7 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
               : 'Coordinación reabrió tu entrega'}
           </AlertTitle>
           <AlertDescription>
-            <p>Motivo: {mensajeEstado.motivo}</p>
+            {mensajeEstado.motivo ? <p>Motivo: {mensajeEstado.motivo}</p> : null}
             <p>Corrige lo que haga falta en esta versión {entrega?.version} y vuelve a enviarla.</p>
           </AlertDescription>
         </Alert>

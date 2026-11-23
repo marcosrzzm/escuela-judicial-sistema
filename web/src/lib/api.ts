@@ -96,6 +96,9 @@ export type AlumnoLista = {
   observacion: string
 }
 
+/** Fuera de Coordinación la lista trae solo matrícula y nombre (especificación, 10.7). */
+export type AlumnoSimple = Pick<AlumnoLista, 'identificador' | 'nombre'>
+
 export type ListaGrupo = {
   grupo: Omit<Grupo, 'alumnos_activos'>
   alumnos: AlumnoLista[]

@@ -1,21 +1,21 @@
 import { Printer } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { InsigniaEstado } from '@/componentes/Estados'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
 import { Pagina } from '@/componentes/Pagina'
 import { SelectorGrupo, useSeleccionGrupo } from '@/componentes/SelectorGrupo'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
-import type { AlumnoLista, ListaGrupo } from '@/lib/api'
+import type { AlumnoSimple, ListaGrupo } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
 
 export function MisListas() {
   const sel = useSeleccionGrupo()
-  const lista = useDatos<ListaGrupo>(sel.grupo ? `/grupos/${sel.grupo.id}/lista` : null)
-  const columnas: ColumnaTabla<AlumnoLista>[] = [
+  const lista = useDatos<Omit<ListaGrupo, 'alumnos'> & { alumnos: AlumnoSimple[] }>(
+    sel.grupo ? `/grupos/${sel.grupo.id}/lista` : null,
+  )
+  const columnas: ColumnaTabla<AlumnoSimple>[] = [
     { clave: 'identificador', encabezado: 'Matrícula', className: 'num' },
     { clave: 'nombre', encabezado: 'Alumno' },
-    { clave: 'estado', encabezado: 'Estado', render: (a) => <InsigniaEstado estado={a.estado} /> },
   ]
   return (
     <Pagina
@@ -51,7 +51,7 @@ export function MisListas() {
           <TablaDatos
             columnas={columnas}
             filas={lista.datos.alumnos}
-            claveFila={(a) => a.inscripcion_id}
+            claveFila={(a) => a.identificador}
             descripcion={`Lista vigente de ${lista.datos.grupo.clave}`}
             vacio={{
               variante: 'vacio',

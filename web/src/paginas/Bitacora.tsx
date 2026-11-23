@@ -16,12 +16,15 @@ import type { EventoBitacora, PaginaBitacora } from '@/lib/api'
 import { useDatos } from '@/lib/datos'
 import { cambios, etiquetaAccion, etiquetaEntidad } from '@/lib/bitacora'
 import { fechaHora } from '@/lib/formulario'
+import { useSesion } from '@/lib/sesion'
 
 export function Bitacora() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const entidad = params.get('entidad') ?? 'todos'
   const pagina = Number(params.get('pagina')) || 1
+  // Solo Coordinación ve motivos y valores; los demás roles ven quién hizo qué y cuándo.
+  const completa = useSesion().sesion?.base === 'coordinacion'
   const [evento, setEvento] = useState<EventoBitacora | null>(null)
   const ruta = `/bitacora?pagina=${pagina}&entidad=${encodeURIComponent(entidad)}&q=${encodeURIComponent(q)}`
   const b = useDatos<PaginaBitacora>(ruta)
@@ -44,18 +47,22 @@ export function Bitacora() {
       encabezado: 'Acción',
       render: (e) => `${etiquetaAccion(e.accion)} · ${etiquetaEntidad(e.entidad)}`,
     },
-    { clave: 'motivo', encabezado: 'Motivo', ocultarEnMovil: true },
+    ...(completa ? [{ clave: 'motivo', encabezado: 'Motivo', ocultarEnMovil: true }] : []),
   ]
 
   return (
     <Pagina
       titulo="Bitácora"
-      descripcion="Quién hizo qué, cuándo y por qué, con los valores antes y después. Solo se agrega: nadie la edita ni la borra."
+      descripcion={
+        completa
+          ? 'Quién hizo qué, cuándo y por qué, con los valores antes y después. Solo se agrega: nadie la edita ni la borra.'
+          : 'Quién hizo qué y cuándo. Los motivos y los valores los ve Coordinación. Solo se agrega: nadie la edita ni la borra.'
+      }
     >
       <FilterBar
         busqueda={q}
         onBusqueda={(v) => poner({ q: v })}
-        placeholder="Buscar por usuario o motivo"
+        placeholder={completa ? 'Buscar por usuario o motivo' : 'Buscar por usuario'}
         filtros={[
           {
             id: 'entidad',
@@ -123,7 +130,11 @@ export function Bitacora() {
                   <h3 className="mb-1 text-xs font-semibold tracking-[0.06em] text-ink-3 uppercase">
                     Cambios
                   </h3>
-                  {cambios(evento.antes, evento.despues).length === 0 ? (
+                  {!completa ? (
+                    <p className="text-ink-3">
+                      Los valores de este movimiento los ve Coordinación.
+                    </p>
+                  ) : cambios(evento.antes, evento.despues).length === 0 ? (
                     <p className="text-ink-3">Este movimiento no guardó valores.</p>
                   ) : (
                     <ul className="flex flex-col gap-1.5">

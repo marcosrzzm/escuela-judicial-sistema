@@ -166,7 +166,7 @@ const GUIAS: Record<string, Guia> = {
   },
   '/bitacora': {
     titulo: 'Cómo se usa la Bitácora',
-    queEs: 'Quién hizo qué, cuándo y por qué, con los valores antes y después.',
+    queEs: 'Quién hizo qué, cuándo y por qué, con los valores antes y después. Dirección ve solo quién y cuándo.',
     pasos: [
       'Busca por usuario o motivo, o filtra por entidad.',
       'Toca un movimiento para ver el antes y el después.',
@@ -185,7 +185,7 @@ const GUIAS: Record<string, Guia> = {
     despues:
       'Al enviar, tu entrega queda con versión, fecha y responsable y ya no se edita. Coordinación la acepta o te la devuelve con un motivo.',
     tropiezos: [
-      'Los alumnos sin derecho a evaluación aparecen bloqueados.',
+      'Los alumnos sin derecho a evaluación aparecen bloqueados. Ves el resultado, no el motivo.',
       'Si te devuelven la entrega, trabajas sobre una versión nueva.',
     ],
   },
