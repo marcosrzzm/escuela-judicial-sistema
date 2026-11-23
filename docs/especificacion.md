@@ -331,3 +331,57 @@ Reglas:
 7. Nada sin sesión: fuera de entrar, la invitación, el restablecimiento y los ajustes públicos, toda ruta exige sesión. Ninguna respuesta sin sesión trae datos de alumnos.
 8. Las respuestas de la API con datos llevan `Cache-Control: no-store`. Los respaldos de la base viven solo en `seguridad/`, fuera de git y del hosting.
 9. Los roles personalizados heredan estos límites de su rol base; ninguno puede ver más que su base.
+
+## 11. Experiencia de uso tipo Canvas
+
+Decisión del 23 de noviembre de 2026 (Marcos): el sistema debe sentirse como una plataforma escolar completa, del estilo de Canvas LMS que usa el ITESO, con todo integrado alrededor del grupo. Se toma de Canvas la forma de organizar y navegar; no se copia su marca, sus textos ni su diseño. Las exclusiones de G2 que siguen vigentes (admisión, asistencia completa, portal de alumnos, firma, plataforma oficial, comunicaciones masivas) no cambian.
+
+### 11.1 Navegación global
+
+- Barra lateral angosta y oscura con íconos y etiqueta corta: Cuenta, Tablero, Grupos, Calendario, Avisos (con número de no leídos), Administración (solo Coordinación) y Ayuda.
+- Dentro de un grupo, un segundo menú con las secciones del grupo (11.3). Las migas dicen siempre periodo, grupo y sección.
+- En celular, la barra global se vuelve un menú inferior de cinco íconos y el menú del grupo un selector arriba.
+
+### 11.2 Tablero
+
+- Tarjetas por grupo (Coordinación, Dirección, Auxiliar) o por asignación (Docente), con una franja de color propia, clave, programa, periodo y un indicador de estado (entregas recibidas de las esperadas, cierre).
+- Columna "Por hacer" a la derecha, según el rol: entregas por revisar, entregas devueltas para corregir, autorizaciones pendientes, solicitudes de acceso, lotes por recibir y fechas límite de la semana. Cada elemento lleva a donde se resuelve.
+- "Actividad reciente": los últimos cambios que afectan a la persona, tomados de la bitácora con las reglas de visibilidad de 10.7.
+- Selector de periodo arriba; por omisión el periodo abierto más reciente.
+
+### 11.3 Página del grupo
+
+Pestañas, cada una con su permiso:
+
+| Pestaña | Contenido | Quién la ve |
+|---|---|---|
+| Inicio | Resumen: alumnos inscritos, materias, entregas por estado, decisiones pendientes, estado del cierre y próximas fechas | Coordinación, Dirección |
+| Personas | Lista vigente, docentes por materia y auxiliares; alta, baja e importación de la lista | Coordinación, Dirección (consulta), Auxiliar (solo lista) |
+| Materias | Cada asignación con docente, fecha límite y estado de su entrega | Coordinación, Dirección |
+| Calificaciones | Sábana de alumnos por materias con la calificación aceptada vigente, estatus y pendientes; exportable a CSV | Coordinación, Dirección |
+| Derecho a evaluación | Decisiones por materia | Coordinación, Dirección |
+| Cierre | Cierre, boletas y lote del grupo | Coordinación, Dirección (consulta y autorización) |
+
+Para el Docente, la tarjeta abre su materia con tres pestañas: Lista, Calificaciones (captura y envío) y Derecho a evaluación (solo el resultado, regla 10.7).
+
+### 11.4 Calendario
+
+- Vista de mes y vista de lista, filtrable por grupo.
+- Eventos que salen de los datos, sin captura doble: inicio y fin de periodo, fecha límite de entrega de cada asignación y fecha de cierre de cada grupo.
+- Campo nuevo `fecha_limite_entrega` en `asignacion_docente` (lo pone Coordinación en Catálogos o en Materias del grupo) y `fecha_cierre_prevista` en `grupo`.
+- Cada rol ve solo los eventos de sus grupos o asignaciones.
+
+### 11.5 Avisos dentro del sistema
+
+- Bandeja de avisos por usuario, no correos: se generan solos cuando a la persona le toca hacer algo (te devolvieron una entrega, hay una entrega por revisar, una autorización te espera, se autorizó o rechazó tu caso, hay un lote por recibir, se acerca una fecha límite).
+- Marcar como leído uno o todos. Nada se borra; los avisos de más de 90 días se ocultan de la bandeja.
+- El aviso nunca trae datos sensibles; solo dice qué pasó y lleva a la pantalla.
+- Tabla nueva `aviso`: `usuario_id`, `tipo`, `texto`, `enlace`, `leido_en`, `creado_en`.
+
+### 11.6 Cuenta
+
+Nombre, correo (solo lectura), rol, Mi contraseña, preferencia de tema claro u oscuro y la lista de sesiones abiertas con la opción de cerrarlas.
+
+### 11.7 Historial del alumno
+
+Vista tipo boleta por periodo: materias, calificación aceptada vigente, estatus y pendientes abiertos y resueltos, con acceso desde Personas y desde el buscador. Reglas de 10.7.
