@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** Único punto de entrada de la API: aplica las cabeceras, revisa la petición y despacha a rutas.php. */
 
 require __DIR__ . '/nucleo.php';
-foreach (['alcance', 'sesion', 'listas', 'entregas', 'cierres', 'metricas', 'administracion', 'correo-resend', 'correo-catalogo', 'acceso', 'plataforma'] as $archivo) {
+foreach (['alcance', 'sesion', 'listas', 'entregas', 'cierres', 'metricas', 'administracion', 'correo-resend', 'correo-catalogo', 'acceso', 'plataforma', 'aula', 'aula-actividades', 'aula-mensajes'] as $archivo) {
     require __DIR__ . "/lib/$archivo.php";
 }
 

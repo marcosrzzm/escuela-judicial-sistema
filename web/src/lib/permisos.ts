@@ -19,6 +19,14 @@ const RECURSOS: Record<string, string> = {
   registro_carga_externa: 'Carga externa',
   bitacora_cambio: 'Bitácora',
   metrica_caso: 'Métricas',
+  modulo: 'Aula: módulos y contenido',
+  archivo: 'Aula: archivos',
+  actividad: 'Aula: tareas, exámenes, foros, categorías y rúbricas',
+  entrega_tarea: 'Aula: entregas de tareas',
+  calificacion_actividad: 'Aula: calificaciones de actividades',
+  intento_examen: 'Aula: intentos de examen',
+  mensaje: 'Mensajes',
+  publicacion_foro: 'Aula: publicaciones de foros',
 }
 
 const ACCIONES: Record<string, string> = {

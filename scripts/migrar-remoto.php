@@ -1,5 +1,5 @@
 <?php
-// Migrador de un solo uso para el temporal ya publicado: aplica SOLO las migraciones pendientes (03 y 04), sin borrar nada.
+// Migrador de un solo uso para el temporal ya publicado: aplica SOLO las migraciones pendientes (03 a 06), sin borrar nada.
 // Se sube con un nombre aleatorio junto a una carpeta _sql/ con esas migraciones, se llama por POST con el token y se borra.
 // accion=respaldo devuelve un volcado SQL de toda la base (tablas, datos y disparadores), sin tocar nada.
 // Se niega a correr sin la huella (sha256) de un respaldo de la base; la huella la manda scripts/migrar-base.mjs --aplicar.
@@ -31,7 +31,7 @@ $pdo = new PDO("mysql:host=127.0.0.1;port=" . ($c['MYSQL_PUERTO'] ?? 3306) . ";d
 $cuentas = fn () => ['usuarios' => (int) $pdo->query('SELECT COUNT(*) FROM usuario')->fetchColumn(), 'alumnos' => (int) $pdo->query('SELECT COUNT(*) FROM alumno')->fetchColumn(), 'bitacora' => (int) $pdo->query('SELECT COUNT(*) FROM bitacora_cambio')->fetchColumn()];
 $existe = fn (string $tabla) => (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '$tabla'")->fetchColumn() === 1;
 // Una migración está pendiente mientras no exista la tabla que crea.
-$migraciones = ['03_administracion.sql' => 'rol', '04_acceso_por_correo.sql' => 'token_acceso', '05_plataforma.sql' => 'aviso'];
+$migraciones = ['03_administracion.sql' => 'rol', '04_acceso_por_correo.sql' => 'token_acceso', '05_plataforma.sql' => 'aviso', '06_aula.sql' => 'modulo'];
 if ($accion === 'respaldo') {
     header('Content-Type: text/plain; charset=utf-8');
     $q = static fn (string $n): string => '`' . str_replace('`', '``', $n) . '`';

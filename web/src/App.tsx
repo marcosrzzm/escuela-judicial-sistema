@@ -12,7 +12,10 @@ import { Autorizaciones } from '@/paginas/Autorizaciones'
 import { Bitacora } from '@/paginas/Bitacora'
 import { Catalogos } from '@/paginas/Catalogos'
 import { Boletas } from '@/paginas/Boletas'
+import { CursoPagina } from '@/paginas/aula/Curso'
+import { Mensajes } from '@/paginas/aula/Mensajes'
 import { Entrar } from '@/paginas/Entrar'
+import { Privacidad } from '@/paginas/Privacidad'
 import { Avisos } from '@/paginas/Avisos'
 import { Calendario } from '@/paginas/Calendario'
 import { Cuenta } from '@/paginas/Cuenta'
@@ -50,6 +53,7 @@ export default function App() {
       <Toaster position="bottom-right" duration={4000} closeButton />
       <Routes>
         <Route path="/entrar" element={<Entrar />} />
+        <Route path="/privacidad" element={<Privacidad />} />
         <Route path="/crear-clave" element={<CrearClave />} />
         <Route path="/restablecer" element={<RestablecerClave />} />
 
@@ -71,6 +75,9 @@ export default function App() {
           <Route path="asignaciones" element={<MisAsignaciones />} />
           <Route path="asignaciones/:id" element={<Asignacion />} />
           <Route path="asignaciones/:id/:tab" element={<Asignacion />} />
+          <Route path="mensajes" element={<Mensajes />} />
+          <Route path="cursos/:id" element={<CursoPagina />} />
+          <Route path="cursos/:id/:tab" element={<CursoPagina />} />
           <Route path="autorizaciones" element={<Autorizaciones />} />
           <Route path="lotes" element={<Lotes />} />
           <Route path="listas" element={<ListaGrupos />} />

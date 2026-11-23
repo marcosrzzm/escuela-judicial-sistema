@@ -1,4 +1,4 @@
-import { Printer, Save, Send } from 'lucide-react'
+import { Calculator, Printer, Save, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
@@ -18,6 +18,7 @@ import { Pagina } from '@/componentes/Pagina'
 import { Panel } from '@/componentes/Plataforma'
 import { TablaDatos, type ColumnaTabla } from '@/componentes/TablaDatos'
 import {
+  leer,
   abrirEntrega,
   enviarEntrega,
   guardarBorrador,
@@ -25,7 +26,10 @@ import {
   type DetalleAsignacion,
   type ItemCalificacion,
 } from '@/lib/api'
+import { avisar } from '@/lib/avisos'
 import { useAccion, useDatos } from '@/lib/datos'
+import type { ContextoCurso } from '@/lib/aula'
+import { esPestanaAula, PESTANAS_AULA, PestanaAula } from '@/paginas/aula/Curso'
 import { fechaHora, soloFecha } from '@/lib/formulario'
 import { useDeclararMigas } from '@/lib/migas'
 import { useSesion } from '@/lib/sesion'
@@ -135,6 +139,28 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
     },
   )
 
+  /** Llena los valores con la calculada del aula (12.7). No guarda ni envía: tú los revisas y decides. */
+  async function usarCalculada() {
+    const r = await leer<{ filas: { alumno_id: number; valor: number | null }[]; hay_actividades: boolean }>(
+      `/cursos/${asignacion.id}/calculadas`,
+    )
+    if (!r.ok) {
+      avisar.error(r.error)
+      return
+    }
+    const llenar = r.datos.filas.filter((f) => f.valor !== null && !detalle.alumnos.find((a) => a.alumno_id === f.alumno_id)?.bloqueado)
+    if (llenar.length === 0) {
+      avisar.error(
+        r.datos.hay_actividades
+          ? 'Todavía no hay actividades calificadas, así que no hay calificación calculada para nadie.'
+          : 'El curso no tiene actividades con categoría. Crea tareas o exámenes con categoría para calcular.',
+      )
+      return
+    }
+    setValores((p) => ({ ...p, ...Object.fromEntries(llenar.map((f) => [f.alumno_id, String(f.valor)])) }))
+    avisar.exito(`Se llenaron ${llenar.length} calificaciones con la calculada. Revísalas y cámbialas si hace falta; no se ha guardado ni enviado nada.`)
+  }
+
   const mensajeEstado =
     entrega?.estado === 'borrador' && detalle.versiones.length > 1
       ? detalle.versiones.find((v) => v.estado === 'devuelta' || v.estado === 'reabierta')
@@ -181,6 +207,15 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
 
       {editable && puede('entrega_calificaciones', 'modificar') ? (
         <div className="flex flex-wrap gap-2" data-no-imprimir>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={guardar.ocupado || enviar.ocupado}
+            onClick={() => void usarCalculada()}
+          >
+            <Calculator strokeWidth={2.4} aria-hidden="true" />
+            Usar calificación calculada
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -244,8 +279,8 @@ function Captura({ detalle }: { detalle: DetalleAsignacion }) {
 }
 
 const PESTANAS = [
+  ...PESTANAS_AULA,
   ['lista', 'Lista'],
-  ['calificaciones', 'Calificaciones'],
   ['derecho', 'Derecho a evaluación'],
 ] as const
 
@@ -317,7 +352,7 @@ export function Asignacion() {
   const { id, tab } = useParams()
   const d = useDatos<DetalleAsignacion>(`/asignaciones/${Number(id)}`)
   const datos = d.datos
-  const activa = PESTANAS.some(([c]) => c === tab) ? (tab as string) : 'calificaciones'
+  const activa = PESTANAS.some(([c]) => c === tab) ? (tab as string) : 'inicio'
   const base = `/asignaciones/${Number(id)}`
   useDeclararMigas(
     datos
@@ -328,17 +363,19 @@ export function Asignacion() {
             ruta: `${base}/calificaciones`,
           },
           {
-            etiqueta: PESTANAS.find(([c]) => c === activa)?.[1] ?? 'Calificaciones',
+            etiqueta: PESTANAS.find(([c]) => c === activa)?.[1] ?? 'Inicio',
             ruta: `${base}/${activa}`,
           },
         ]
       : null,
   )
   if (tab !== undefined && !PESTANAS.some(([c]) => c === tab))
-    return <Navigate to={`${base}/calificaciones`} replace />
+    return <Navigate to={`${base}/inicio`} replace />
   if (d.error) return <ErrorDatos error={d.error} reintentar={d.reintentar} />
   if (!datos) return <Cargando />
   const limite = (datos.asignacion as { fecha_limite_entrega?: string | null }).fecha_limite_entrega
+  const abierto = datos.asignacion.periodo_estado === 'abierto'
+  const ctx: ContextoCurso = { id: datos.asignacion.id, modo: 'docente', periodoAbierto: abierto, escribe: abierto }
   return (
     <LayoutSeccion
       encabezado={`${datos.asignacion.materia} · ${datos.asignacion.grupo}`}
@@ -373,10 +410,14 @@ export function Asignacion() {
         </>
       }
     >
+      {esPestanaAula(activa) ? <PestanaAula ctx={ctx} tab={activa} /> : null}
       {activa === 'lista' ? <ListaMateria detalle={datos} /> : null}
       {activa === 'calificaciones' ? (
         <>
-          <h2 className="text-2xl font-semibold text-ink">Calificaciones</h2>
+          <h2 className="text-2xl font-semibold text-ink">Entrega de calificaciones a Coordinación</h2>
+          <p className="max-w-2xl text-sm text-ink-3">
+            Esta es la calificación que revisa Coordinación. Puedes capturarla a mano o llenarla con la calificación calculada del aula; tú decides los valores y los envías.
+          </p>
           <Captura key={datos.entrega?.id ?? 'sin-entrega'} detalle={datos} />
         </>
       ) : null}

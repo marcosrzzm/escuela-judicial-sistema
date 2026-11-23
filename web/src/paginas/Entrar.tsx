@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -169,6 +169,14 @@ export function Entrar() {
               ¿Olvidaste tu contraseña?
             </Button>
           </form>
+
+          <p className="text-xs text-ink-3">
+            Al entrar aceptas el uso de tus datos descrito en el{' '}
+            <Link to="/privacidad" className="font-medium text-brand underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+              aviso de privacidad
+            </Link>{' '}
+            (borrador para revisión de la Escuela).
+          </p>
 
           {/* Solo en desarrollo: el build que se sube no trae cuentas ni contraseñas. */}
           {import.meta.env.DEV ? (
