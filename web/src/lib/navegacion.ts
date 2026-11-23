@@ -8,6 +8,7 @@ import {
   BookOpenCheck,
   CalendarDays,
   LayoutDashboard,
+  MessageSquare,
   UserRound,
   ClipboardCheck,
   FileArchive,
@@ -74,6 +75,15 @@ export const AREAS: Area[] = [
     ruta: '/avisos',
     roles: ['coordinacion', 'docente', 'direccion', 'carga_externa', 'auxiliar', 'alumno'],
     permiso: 'periodo:ver',
+  },
+  {
+    clave: 'mensajes',
+    etiqueta: 'Mensajes',
+    descripcion: 'Conversaciones de una persona a otra dentro del sistema.',
+    icono: MessageSquare,
+    ruta: '/mensajes',
+    roles: ['coordinacion', 'docente', 'direccion', 'alumno'],
+    permiso: 'mensaje:ver',
   },
   {
     clave: 'cuenta',
@@ -267,6 +277,7 @@ export function itemsRail(cuenta: Cuenta | null | undefined): ItemRail[] {
     ...(cuenta.base === 'carga_externa' ? item('lotes') : item('grupos')),
     ...item('calendario'),
     ...item('avisos'),
+    ...item('mensajes'),
     ...(cuenta.base === 'alumno' ? item('historial', 'Boleta') : item('historial', 'Historial')),
     ...(cuenta.base === 'direccion' ? [...item('autorizaciones'), ...item('bitacora')] : []),
     ...(cuenta.base === 'coordinacion' && admin.length > 0

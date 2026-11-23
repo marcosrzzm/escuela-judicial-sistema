@@ -47,6 +47,7 @@ import { areaDeRuta, itemsRail, rutaPermitida, type ItemRail } from '@/lib/naveg
 import { ContextoPreferencias, usePreferencias, type Preferencias } from '@/lib/preferencias'
 import { useSesion } from '@/lib/sesion'
 import { cn } from '@/lib/utils'
+import { useSinLeerMensajes } from '@/paginas/aula/Mensajes'
 import { SinPermiso } from '@/paginas/SinPermiso'
 
 const CLAVE_DENSIDAD = 'elevalia.densidad'
@@ -110,6 +111,7 @@ function Rail({ compacto, alternar }: { compacto: boolean; alternar: () => void 
   const navegar = useNavigate()
   const prefs = usePreferencias()
   const noLeidos = useNoLeidos()
+  const sinLeer = useSinLeerMensajes()
   const [avisosAbiertos, setAvisosAbiertos] = useState(false)
   const items = itemsRail(sesion)
   const area = areaDeRuta(ubicacion.pathname)
@@ -214,6 +216,7 @@ function Rail({ compacto, alternar }: { compacto: boolean; alternar: () => void 
               title={item.etiqueta}
             >
               <Contenido item={item} compacto={compacto} />
+              {item.clave === 'mensajes' ? <Insignia n={sinLeer} /> : null}
             </Link>
           )
         })}
@@ -299,11 +302,12 @@ function BarraMovil() {
   const ubicacion = useLocation()
   const prefs = usePreferencias()
   const noLeidos = useNoLeidos()
+  const sinLeer = useSinLeerMensajes()
   const [masAbierto, setMasAbierto] = useState(false)
   const items = itemsRail(sesion)
   const principales = items
     .filter((i) =>
-      ['tablero', 'grupos', 'lotes', 'calendario', 'avisos', 'historial'].includes(i.clave),
+      ['tablero', 'grupos', 'lotes', 'calendario', 'avisos', 'mensajes', 'historial'].includes(i.clave),
     )
     .slice(0, 4)
   const resto = items.filter((i) => !principales.includes(i))
@@ -333,6 +337,7 @@ function BarraMovil() {
             >
               <Icono strokeWidth={2} className="size-[22px]" aria-hidden="true" />
               {i.clave === 'avisos' ? <Insignia n={noLeidos} /> : null}
+              {i.clave === 'mensajes' ? <Insignia n={sinLeer} /> : null}
               {i.etiqueta}
             </Link>
           )

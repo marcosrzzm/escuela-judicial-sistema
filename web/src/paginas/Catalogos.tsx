@@ -1,3 +1,4 @@
+import { UltimoRespaldo } from '@/paginas/aula/Respaldo'
 import { Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -734,6 +735,7 @@ export function Catalogos() {
       {actual?.clave === 'materias' ? <PestanaMaterias /> : null}
       {actual?.clave === 'grupos' ? <PestanaGrupos /> : null}
       {actual?.clave === 'asignaciones' ? <PestanaAsignaciones /> : null}
+      <UltimoRespaldo />
     </Pagina>
   )
 }

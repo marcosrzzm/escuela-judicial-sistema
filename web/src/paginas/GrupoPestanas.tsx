@@ -201,6 +201,22 @@ export function GrupoMaterias({ grupo, resumen }: { grupo: Grupo; resumen: Resum
         </span>
       ),
     },
+    ...(puede('modulo', 'ver')
+      ? [
+          {
+            clave: 'aula',
+            encabezado: 'Aula',
+            render: (m: MateriaGrupo) => (
+              <Link
+                to={`/cursos/${m.id}/inicio`}
+                className="font-medium text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                Abrir el aula
+              </Link>
+            ),
+          },
+        ]
+      : []),
   ]
   return (
     <Pagina
