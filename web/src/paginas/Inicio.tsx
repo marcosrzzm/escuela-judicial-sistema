@@ -1,6 +1,7 @@
 import {
   ClipboardCheck,
   FileWarning,
+  KeyRound,
   PackageCheck,
   ShieldCheck,
   type LucideIcon,
@@ -89,6 +90,15 @@ export function Inicio() {
             detalle="Todas sus entregas están aceptadas."
             ruta="/cierre"
           />
+          {sesion?.es_sistema ? (
+            <Contador
+              icono={KeyRound}
+              cifra={datos.solicitudes_acceso}
+              etiqueta="Solicitudes de contraseña"
+              detalle="Personas que pidieron restablecerla y esperan tu autorización."
+              ruta="/usuarios"
+            />
+          ) : null}
           <Contador
             icono={FileWarning}
             cifra={datos.lotes_con_discrepancias}

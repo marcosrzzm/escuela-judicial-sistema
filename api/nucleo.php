@@ -327,7 +327,9 @@ function exigir_admin(string $recurso, string $accion): array
 function guardia_de_peticion(string $metodo, string $ruta): void
 {
     // Con una cookie vieja, el inicio de sesión no puede quedar bloqueado ni cargar la cuenta anterior.
-    $u = $ruta === '/login' ? null : usuario_actual();
+    // Las rutas públicas (entrar, enlaces de correo, olvidé mi contraseña) no dependen de la cookie que haya.
+    $publica = in_array($ruta, ['/login', '/acceso/validar', '/acceso/clave', '/olvide-clave'], true);
+    $u = $publica ? null : usuario_actual();
     if ($u === null) {
         return;
     }

@@ -7,6 +7,7 @@ import { BuscadorGlobal } from '@/componentes/BuscadorGlobal'
 import { Shell } from '@/componentes/Shell'
 import { useSesion } from '@/lib/sesion'
 import { Asignacion, MisAsignaciones } from '@/paginas/MisAsignaciones'
+import { CrearClave, RestablecerClave } from '@/paginas/AccesoPorEnlace'
 import { Autorizaciones } from '@/paginas/Autorizaciones'
 import { Bitacora } from '@/paginas/Bitacora'
 import { Catalogos } from '@/paginas/Catalogos'
@@ -48,6 +49,8 @@ export default function App() {
       <Toaster position="bottom-right" duration={4000} closeButton />
       <Routes>
         <Route path="/entrar" element={<Entrar />} />
+        <Route path="/crear-clave" element={<CrearClave />} />
+        <Route path="/restablecer" element={<RestablecerClave />} />
 
         <Route element={<ShellConBuscador />}>
           <Route index element={<Inicio />} />

@@ -1,6 +1,6 @@
 // Solo lectura: compara las migraciones de sql/ con la base del temporal (a través del instalador de un solo uso).
 // Uso: node scripts/migrar-base.mjs --estado   (lee seguridad/destino.json: {"url","token"}). Imprime "PENDIENTE <archivo>".
-// Aplicar solo la migración 03 en el temporal, sin borrar nada (el servidor tiene subido scripts/migrar-remoto.php):
+// Aplicar solo las migraciones pendientes (03 y 04) en el temporal, sin borrar nada (el servidor tiene subido scripts/migrar-remoto.php):
 //   node scripts/migrar-base.mjs --aplicar --respaldo seguridad/respaldos/<volcado>.sql
 // Se niega si el respaldo no existe, está vacío, tiene más de 24 horas o no parece un volcado de la base.
 import { createHash } from 'node:crypto'
@@ -37,7 +37,8 @@ if (aplicar) {
 const destino = JSON.parse(readFileSync(join(raiz, 'seguridad/destino.json'), 'utf8'))
 const esquema = readFileSync(join(raiz, 'sql/01_esquema.sql'), 'utf8')
 const tablas01 = (esquema.match(/^CREATE TABLE/gm) ?? []).length
-const tablas = tablas01 + (readFileSync(join(raiz, 'sql/03_administracion.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
+const tablas03 = tablas01 + (readFileSync(join(raiz, 'sql/03_administracion.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
+const tablas = tablas03 + (readFileSync(join(raiz, 'sql/04_acceso_por_correo.sql'), 'utf8').match(/^CREATE TABLE/gm) ?? []).length
 const triggers = (readFileSync(join(raiz, 'sql/02_bitacora_inmutable.sql'), 'utf8').match(/^CREATE TRIGGER/gm) ?? []).length
 const r = await fetch(destino.url, {
   method: 'POST',
@@ -53,6 +54,7 @@ if (aplicar) {
   process.exit(0)
 }
 if (e.tablas < tablas01) console.log('PENDIENTE 01_esquema.sql')
-if (e.tablas < tablas) console.log('PENDIENTE 03_administracion.sql')
+if (e.tablas < tablas03) console.log('PENDIENTE 03_administracion.sql')
+if (e.tablas < tablas) console.log('PENDIENTE 04_acceso_por_correo.sql')
 if (e.triggers < triggers) console.log('PENDIENTE 02_bitacora_inmutable.sql')
 console.log(`Base con ${e.tablas} tablas y ${e.triggers} disparadores; esperadas ${tablas} y ${triggers}.`)

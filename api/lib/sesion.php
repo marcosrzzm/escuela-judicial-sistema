@@ -76,6 +76,17 @@ function ruta_logout(): never
     responder(200, ['ok' => true]);
 }
 
+/** Reglas de toda contraseña nueva: mínimo 10 caracteres y distinta del correo. */
+function exigir_clave_valida(string $nueva, string $correo): void
+{
+    if (mb_strlen($nueva) < 10 || strlen($nueva) > 200) {
+        error_http(422, 'La contraseña nueva necesita al menos 10 caracteres.', ['nueva' => 'Mínimo 10 caracteres.']);
+    }
+    if (mb_strtolower($nueva) === mb_strtolower($correo)) {
+        error_http(422, 'La contraseña no puede ser igual a tu correo.', ['nueva' => 'No puede ser tu correo.']);
+    }
+}
+
 /** Cambio de contraseña propio: actual, nueva y confirmación. Quita la marca de contraseña temporal. */
 function ruta_mi_clave(): never
 {
@@ -88,12 +99,7 @@ function ruta_mi_clave(): never
     if ($actual === '' || !password_verify($actual, $guardado['contrasena_hash'])) {
         error_http(422, 'La contraseña actual no es correcta.', ['actual' => 'No es la contraseña actual.']);
     }
-    if (mb_strlen($nueva) < 10 || strlen($nueva) > 200) {
-        error_http(422, 'La contraseña nueva necesita al menos 10 caracteres.', ['nueva' => 'Mínimo 10 caracteres.']);
-    }
-    if (mb_strtolower($nueva) === mb_strtolower($u['correo'])) {
-        error_http(422, 'La contraseña no puede ser igual a tu correo.', ['nueva' => 'No puede ser tu correo.']);
-    }
+    exigir_clave_valida($nueva, $u['correo']);
     if ($nueva === $actual) {
         error_http(422, 'La contraseña nueva debe ser distinta de la actual.', ['nueva' => 'Debe ser distinta de la actual.']);
     }

@@ -326,6 +326,7 @@ export type Boletas = {
 }
 
 export type InicioCoordinacion = {
+  solicitudes_acceso: number
   entregas_por_revisar: number
   decisiones_en_direccion: number
   cierres_en_direccion: number
@@ -505,8 +506,36 @@ export const verComo = (usuarioId: number) => enviar<{ ok: true }>(`/ver-como/${
 export const salirDeVerComo = () => enviar<{ ok: true }>('/ver-como/salir')
 
 export type DatosUsuario = { nombre: string; correo: string; rol: string }
-export const crearUsuario = (datos: DatosUsuario) =>
-  enviar<{ id: number; clave_temporal: string }>('/usuarios', datos)
+export type AltaUsuario = { id: number; correo_enviado?: boolean; clave_temporal?: string }
+export const crearUsuario = (datos: DatosUsuario & { invitar: boolean }) =>
+  enviar<AltaUsuario>('/usuarios', datos)
+export const reenviarInvitacion = (id: number) =>
+  enviar<{ correo_enviado: boolean }>(`/usuarios/${id}/invitacion`)
+export const enviarEnlaceRestablecer = (id: number) =>
+  enviar<{ correo_enviado: boolean }>(`/usuarios/${id}/enlace-restablecer`)
+
+export type SolicitudAcceso = {
+  id: number
+  correo: string
+  nombre: string
+  rol_nombre: string
+  creado_en: string
+}
+export const autorizarSolicitud = (id: number) =>
+  actualizar<{ correo_enviado: boolean }>(`/solicitudes-acceso/${id}/autorizar`)
+export const rechazarSolicitud = (id: number, motivo: string) =>
+  actualizar<{ ok: true }>(`/solicitudes-acceso/${id}/rechazar`, { motivo })
+
+/** Pantallas públicas: entrar con el enlace del correo y pedir restablecer. */
+export const validarEnlace = (token: string) =>
+  leer<{ correo: string }>(`/acceso/validar?t=${encodeURIComponent(token)}`)
+export const fijarClaveConEnlace = (datos: {
+  token: string
+  nueva: string
+  confirmacion: string
+}) => enviar<Sesion>('/acceso/clave', datos)
+export const pedirRestablecer = (correo: string) =>
+  enviar<{ ok: true }>('/olvide-clave', { correo })
 export const editarUsuario = (id: number, datos: DatosUsuario & { estado: string }) =>
   actualizar<{ id: number }>(`/usuarios/${id}`, datos)
 export const restablecerClave = (id: number) =>

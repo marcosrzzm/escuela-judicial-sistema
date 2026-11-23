@@ -24,7 +24,10 @@ function ruta_inicio(): never
             $listos++;
         }
     }
+    // Solicitudes de restablecer contraseña: solo las ve el rol del sistema coordinacion (especificación, 10.6).
+    $solicitudes = $u['es_sistema'] ? (int) fila('SELECT COUNT(*) AS n FROM solicitud_restablecer WHERE estado = \'pendiente\'')['n'] : 0;
     responder(200, [
+        'solicitudes_acceso' => $solicitudes,
         'entregas_por_revisar' => (int) $por_revisar['n'],
         'decisiones_en_direccion' => (int) $a_direccion['n'],
         'cierres_en_direccion' => (int) $cierres_direccion['n'],

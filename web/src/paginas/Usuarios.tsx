@@ -1,4 +1,4 @@
-import { Eye, KeyRound, Pencil, UserPlus, UsersRound } from 'lucide-react'
+import { Eye, KeyRound, Mail, Pencil, UserPlus, UsersRound } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -16,6 +16,7 @@ import {
 import { BotonesSegmentados } from '@/componentes/BotonesSegmentados'
 import { CampoSelect, CampoTexto } from '@/componentes/CampoFormulario'
 import { DialogoConfirmacion } from '@/componentes/DialogoConfirmacion'
+import { DialogoMotivo } from '@/componentes/DialogoMotivo'
 import { InsigniaEstado } from '@/componentes/Estados'
 import { Cargando, ErrorDatos } from '@/componentes/EstadoCarga'
 import { Pagina } from '@/componentes/Pagina'
@@ -28,31 +29,39 @@ import {
   type UsuarioFormulario,
 } from '@/esquemas/administracion'
 import {
+  autorizarSolicitud,
   crearRol,
   crearUsuario,
   editarRol,
   editarUsuario,
+  enviarEnlaceRestablecer,
   guardarGruposAuxiliar,
+  rechazarSolicitud,
+  reenviarInvitacion,
   restablecerClave,
   verComo,
   type Grupo,
+  type Resultado,
   type Rol,
   type RolAdmin,
   type Roles,
+  type SolicitudAcceso,
   type Usuario,
 } from '@/lib/api'
 import { useAccion, useDatos } from '@/lib/datos'
-import { resolverZod } from '@/lib/formulario'
+import { fechaHora, resolverZod } from '@/lib/formulario'
 import { agruparPermisos, etiquetaAccion, etiquetaRecurso, ETIQUETA_BASE } from '@/lib/permisos'
 import { useSesion } from '@/lib/sesion'
 
 // ─── Contraseña temporal: se muestra una sola vez ───────────────────────────────
 
+type ClaveParaMostrar = { nombre: string; clave: string; correoFallo?: boolean }
+
 function DialogoClaveTemporal({
   datos,
   alCerrar,
 }: {
-  datos: { nombre: string; clave: string } | null
+  datos: ClaveParaMostrar | null
   alCerrar: () => void
 }) {
   const [copiada, setCopiada] = useState(false)
@@ -62,6 +71,7 @@ function DialogoClaveTemporal({
         <DialogHeader>
           <DialogTitle>Contraseña temporal de {datos?.nombre}</DialogTitle>
           <DialogDescription>
+            {datos?.correoFallo ? 'La cuenta quedó creada, pero el correo no salió. ' : ''}
             Entrégasela a la persona. Se muestra esta única vez y no se guarda en ningún lado; al
             entrar tendrá que cambiarla.
           </DialogDescription>
@@ -101,7 +111,7 @@ function DialogoUsuario({
   abierto: boolean
   roles: RolAdmin[]
   alCerrar: () => void
-  alClaveTemporal: (d: { nombre: string; clave: string }) => void
+  alClaveTemporal: (d: ClaveParaMostrar) => void
 }) {
   const {
     register,
@@ -112,19 +122,35 @@ function DialogoUsuario({
   } = useForm<UsuarioFormulario>({
     resolver: resolverZod(esquemaUsuario),
     defaultValues: usuario
-      ? { nombre: usuario.nombre, correo: usuario.correo, rol: usuario.rol, estado: usuario.estado }
-      : { nombre: '', correo: '', rol: '', estado: 'activo' },
+      ? {
+          nombre: usuario.nombre,
+          correo: usuario.correo,
+          rol: usuario.rol,
+          estado: usuario.estado,
+          invitar: false,
+        }
+      : { nombre: '', correo: '', rol: '', estado: 'activo', invitar: true },
   })
   const guardar = useAccion(
     async (v: UsuarioFormulario) => {
       if (usuario) return editarUsuario(usuario.id, v)
-      const r = await crearUsuario({ nombre: v.nombre, correo: v.correo, rol: v.rol })
-      if (r.ok) alClaveTemporal({ nombre: v.nombre, clave: r.datos.clave_temporal })
+      const r = await crearUsuario({
+        nombre: v.nombre,
+        correo: v.correo,
+        rol: v.rol,
+        invitar: v.invitar,
+      })
+      if (r.ok && r.datos.clave_temporal)
+        alClaveTemporal({ nombre: v.nombre, clave: r.datos.clave_temporal, correoFallo: v.invitar })
       return r
     },
     {
-      exito: (_r, v) =>
-        usuario ? `Cuenta de ${v.nombre} actualizada` : `Cuenta de ${v.nombre} creada`,
+      exito: (r, v) =>
+        usuario
+          ? `Cuenta de ${v.nombre} actualizada`
+          : 'correo_enviado' in r && r.correo_enviado
+            ? `Invitación enviada a ${v.correo}`
+            : `Cuenta de ${v.nombre} creada`,
       alExito: alCerrar,
     },
   )
@@ -136,7 +162,7 @@ function DialogoUsuario({
           <DialogDescription>
             {usuario
               ? 'Cambiar el rol o inactivar la cuenta cierra sus sesiones abiertas.'
-              : 'El sistema genera una contraseña temporal y te la muestra una sola vez.'}
+              : 'Puedes invitar a la persona por correo o darle una contraseña temporal.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -178,13 +204,31 @@ function DialogoUsuario({
                 { valor: 'inactivo', etiqueta: 'Inactivo' },
               ]}
             />
-          ) : null}
+          ) : (
+            <label className="flex items-start gap-3 text-sm">
+              <Checkbox
+                className="mt-0.5"
+                checked={watch('invitar')}
+                onCheckedChange={(v) => setValue('invitar', v === true)}
+              />
+              <span>
+                Enviar invitación por correo
+                <span className="block text-xs text-ink-3">
+                  {watch('invitar')
+                    ? 'La persona crea su contraseña con un enlace que dura 72 horas.'
+                    : 'Se genera una contraseña temporal y te la mostramos una sola vez.'}
+                </span>
+              </span>
+            </label>
+          )}
         </form>
         <DialogFooter>
           <PieDeFormulario
             formId="form-usuario"
             onCancelar={alCerrar}
-            textoConfirmar={usuario ? 'Guardar cambios' : 'Crear cuenta'}
+            textoConfirmar={
+              usuario ? 'Guardar cambios' : watch('invitar') ? 'Crear e invitar' : 'Crear cuenta'
+            }
             trabajando={guardar.ocupado}
           />
         </DialogFooter>
@@ -252,6 +296,85 @@ function DialogoGruposAuxiliar({
   )
 }
 
+// ─── Solicitudes de acceso ──────────────────────────────────────────────────────
+
+/** Si el servidor hizo la acción pero el correo no salió, se avisa como error para que se note. */
+async function avisarSiNoSalio(
+  llamada: Promise<Resultado<{ correo_enviado: boolean }>>,
+  mensaje: string,
+): Promise<Resultado<{ correo_enviado: boolean }>> {
+  const r = await llamada
+  return r.ok && !r.datos.correo_enviado ? { ok: false, codigo: 200, error: mensaje } : r
+}
+
+function SolicitudesAcceso() {
+  const lista = useDatos<{ filas: SolicitudAcceso[] }>('/solicitudes-acceso')
+  const [rechazo, setRechazo] = useState<SolicitudAcceso | null>(null)
+  const autorizar = useAccion(
+    (x: SolicitudAcceso) =>
+      avisarSiNoSalio(
+        autorizarSolicitud(x.id),
+        'Quedó autorizada y se cerraron sus sesiones, pero el correo no salió. Usa Enviar enlace en su cuenta o dale una contraseña temporal.',
+      ),
+    { exito: (_r, x) => `Enlace enviado a ${x.correo}` },
+  )
+  const rechazar = useAccion(
+    (v: { x: SolicitudAcceso; motivo: string }) => rechazarSolicitud(v.x.id, v.motivo),
+    {
+      exito: (_r, v) => `Solicitud de ${v.x.nombre} rechazada`,
+      alExito: () => setRechazo(null),
+    },
+  )
+  const filas = lista.datos?.filas ?? []
+  if (filas.length === 0) return null
+  return (
+    <section aria-labelledby="solicitudes-titulo" className="rounded-lg border border-line bg-card">
+      <div className="border-b border-line px-4 py-3">
+        <h2 id="solicitudes-titulo" className="font-sans text-base font-semibold text-ink">
+          Solicitudes de acceso ({filas.length})
+        </h2>
+        <p className="text-sm text-ink-3">
+          Pidieron restablecer su contraseña. No reciben nada hasta que autorices.
+        </p>
+      </div>
+      <ul className="divide-y divide-line">
+        {filas.map((x) => (
+          <li key={x.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">{x.nombre}</p>
+              <p className="text-xs text-ink-3">
+                {x.correo} · {x.rol_nombre} · {fechaHora(x.creado_en)}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={autorizar.ocupado}
+                onClick={() => autorizar.ejecutar(x)}
+              >
+                Autorizar y enviar enlace
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setRechazo(x)}>
+                Rechazar
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <DialogoMotivo
+        abierto={rechazo !== null}
+        alCambiarApertura={(a) => !a && setRechazo(null)}
+        titulo={`Rechazar la solicitud de ${rechazo?.nombre ?? ''}`}
+        descripcion="No se manda ningún correo. El motivo queda en la bitácora."
+        etiquetaAccion="Rechazar solicitud"
+        ocupado={rechazar.ocupado}
+        alConfirmar={(motivo) => rechazo && rechazar.ejecutar({ x: rechazo, motivo })}
+      />
+    </section>
+  )
+}
+
 // ─── Pestaña Usuarios ───────────────────────────────────────────────────────────
 
 function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
@@ -265,7 +388,23 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
   const [edicion, setEdicion] = useState<{ usuario: Usuario | null } | null>(null)
   const [aux, setAux] = useState<Usuario | null>(null)
   const [reinicio, setReinicio] = useState<Usuario | null>(null)
-  const [clave, setClave] = useState<{ nombre: string; clave: string } | null>(null)
+  const [clave, setClave] = useState<ClaveParaMostrar | null>(null)
+  const reenviar = useAccion(
+    (u: Usuario) =>
+      avisarSiNoSalio(
+        reenviarInvitacion(u.id),
+        'El correo no salió. Dale una contraseña temporal con el botón Contraseña.',
+      ),
+    { exito: (_r, u) => `Invitación reenviada a ${u.correo}` },
+  )
+  const enlace = useAccion(
+    (u: Usuario) =>
+      avisarSiNoSalio(
+        enviarEnlaceRestablecer(u.id),
+        'El correo no salió. Dale una contraseña temporal con el botón Contraseña.',
+      ),
+    { exito: (_r, u) => `Enlace enviado a ${u.correo}` },
+  )
   const reiniciar = useAccion((u: Usuario) => restablecerClave(u.id), {
     exito: (_r, u) => `Contraseña temporal nueva para ${u.nombre}`,
     alExito: (r, u) => {
@@ -335,6 +474,7 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
           Cuenta nueva
         </Button>
       </div>
+      <SolicitudesAcceso />
       {lista.error ? <ErrorDatos error={lista.error} reintentar={lista.reintentar} /> : null}
       {lista.cargando ? <Cargando /> : null}
       {lista.datos ? (
@@ -369,6 +509,18 @@ function PestanaUsuarios({ roles }: { roles: RolAdmin[] }) {
                 <KeyRound strokeWidth={2.4} aria-hidden="true" />
                 Contraseña
               </Button>
+              {u.estado === 'activo' && u.id !== sesion?.id ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={reenviar.ocupado || enlace.ocupado}
+                  onClick={() => (u.debe_cambiar_clave ? reenviar : enlace).ejecutar(u)}
+                >
+                  <Mail strokeWidth={2.4} aria-hidden="true" />
+                  {u.debe_cambiar_clave ? 'Reenviar invitación' : 'Enviar enlace'}
+                </Button>
+              ) : null}
               {u.base === 'auxiliar' ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => setAux(u)}>
                   <UsersRound strokeWidth={2.4} aria-hidden="true" />

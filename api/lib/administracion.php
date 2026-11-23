@@ -87,11 +87,12 @@ function correo_valido(array $d): string
 
 function ruta_crear_usuario(): never
 {
-    exigir_admin('usuario', 'crear');
+    $admin = exigir_admin('usuario', 'crear');
     $d = cuerpo_json();
     $nombre = texto($d, 'nombre', 120, 'El nombre');
     $correo = correo_valido($d);
     $rol = rol_activo_o_422(texto($d, 'rol', 20, 'El rol'));
+    $invitar = ($d['invitar'] ?? false) === true;
     if (fila('SELECT id FROM usuario WHERE correo = ?', [$correo]) !== null) {
         error_http(422, 'Ya existe una cuenta con ese correo.', ['correo' => 'Ese correo ya tiene cuenta.']);
     }
@@ -101,6 +102,11 @@ function ruta_crear_usuario(): never
         'rol' => $rol['clave'], 'debe_cambiar_clave' => 1,
     ]);
     registrar_bitacora('usuario', $id, 'alta', null, ['nombre' => $nombre, 'correo' => $correo, 'rol' => $rol['clave'], 'estado' => 'activo', 'debe_cambiar_clave' => true]);
+    if ($invitar) {
+        // Con la invitación la persona crea su contraseña; la temporal solo sale si el correo no pudo salir.
+        $enviado = mandar_enlace('invitacion', ['id' => $id, 'correo' => $correo], $admin, 'invitacion_enviada');
+        responder(200, ['id' => $id, 'correo_enviado' => $enviado] + ($enviado ? [] : ['clave_temporal' => $clave]));
+    }
     // La contraseña temporal sale solo en esta respuesta; en ningún lado queda en claro.
     responder(200, ['id' => $id, 'clave_temporal' => $clave]);
 }

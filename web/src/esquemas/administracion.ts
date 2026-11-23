@@ -6,6 +6,7 @@ export const esquemaUsuario = z.object({
   correo: z.email('Escribe un correo válido.').max(160, 'Máximo 160 caracteres.'),
   rol: z.string().min(1, 'Elige un rol.'),
   estado: z.enum(['activo', 'inactivo']),
+  invitar: z.boolean(),
 })
 export type UsuarioFormulario = z.infer<typeof esquemaUsuario>
 
@@ -27,6 +28,17 @@ export const esquemaMiClave = z
     message: 'No coincide con la contraseña nueva.',
   })
 export type MiClaveFormulario = z.infer<typeof esquemaMiClave>
+
+export const esquemaClaveNueva = z
+  .object({
+    nueva: z.string().min(10, 'Usa al menos 10 caracteres.').max(200, 'Máximo 200 caracteres.'),
+    confirmacion: z.string(),
+  })
+  .refine((v) => v.nueva === v.confirmacion, {
+    path: ['confirmacion'],
+    message: 'No coincide con la contraseña nueva.',
+  })
+export type ClaveNuevaFormulario = z.infer<typeof esquemaClaveNueva>
 
 export const esquemaPeriodo = z
   .object({

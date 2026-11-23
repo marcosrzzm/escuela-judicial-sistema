@@ -1,9 +1,9 @@
-// Criterios de aceptación CA-01 a CA-20 (especificación, sección 7) contra la API local.
+// Criterios de aceptación CA-01 a CA-22 (especificación, sección 7) contra la API local.
 // Uso local: node pruebas/aceptacion.mjs   (con la API en marcha; reinicia la semilla al empezar)
 // Uso contra el temporal: ACEPTACION_URL=https://<temporal> node pruebas/aceptacion.mjs
 //   (contraseñas de seguridad/accesos-demo.md; la base debe estar recién sembrada)
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -441,6 +441,134 @@ ca('CA-20', 'Catálogos y CSV: periodo, materia y grupo nuevos, asignación al d
   igual((await coord.post('/asignaciones', { grupo_id: g2n.datos.id, materia_id: mat.datos.id, docente_id: ctx.docenteNuevo.id })).estado, 409, 'Asignar en un periodo cerrado')
   igual((await coord.put(`/asignaciones/${asig.datos.id}`, { docente_id: ctx.docenteNuevo.id, motivo: 'Prueba' })).estado, 409, 'Cambiar docente en un periodo cerrado')
 })
+
+// CA-21 y CA-22 leen el enlace del archivo que la API deja en seguridad/correos-dev/ cuando no hay llave de Resend (solo local).
+const CORREOS = join(raiz, 'seguridad/correos-dev')
+const inicioPruebas = Date.now() - 50
+/** Enlaces (tokens) que salieron para ese correo desde que empezaron las pruebas, del más viejo al más nuevo. */
+function enlacesPara(correo) {
+  let nombres = []
+  try {
+    nombres = readdirSync(CORREOS).sort()
+  } catch {
+    return []
+  }
+  return nombres
+    .filter((n) => statSync(join(CORREOS, n)).mtimeMs >= inicioPruebas)
+    .map((n) => readFileSync(join(CORREOS, n), 'utf8'))
+    .filter((t) => t.split('\n')[0] === `Para: ${correo}`)
+    .map((t) => /[?&]t=([a-f0-9]{64})/.exec(t)?.[1])
+    .filter(Boolean)
+}
+const anonimo = () => new Cliente('anonimo')
+/** Filas de la bitácora de cada acción; falla si alguna no tiene ninguna. */
+async function bitacoraDe(acciones) {
+  const todas = []
+  for (const a of acciones) {
+    const filas = (await coord.get(`/bitacora?accion=${a}`)).datos.filas
+    afirmar(filas.length > 0, `Falta ${a} en la bitácora`)
+    todas.push(...filas)
+  }
+  return todas
+}
+
+if (!REMOTO) {
+  ca('CA-21', 'Coordinación invita por correo; la persona crea su contraseña con el enlace y el segundo uso responde 410', async () => {
+    const correo = 'invitada@prueba.local'
+    const alta = await coord.post('/usuarios', { nombre: 'Invitada Prueba', correo, rol: 'docente', invitar: true })
+    igual(alta.estado, 200, 'Alta con invitación')
+    igual(alta.datos.correo_enviado, true, 'Correo enviado')
+    afirmar(!('clave_temporal' in alta.datos), 'Con la invitación enviada no debe salir una contraseña temporal')
+    const [token] = enlacesPara(correo)
+    afirmar(token, 'No salió el correo de invitación')
+    const persona = anonimo()
+    igual((await persona.get(`/acceso/validar?t=${token}`)).datos, { correo }, 'El enlace solo devuelve el correo')
+    igual((await persona.get(`/acceso/validar?t=${'0'.repeat(64)}`)).estado, 410, 'Enlace inventado')
+    igual((await persona.post('/acceso/clave', { token, nueva: 'corta', confirmacion: 'corta' })).estado, 422, 'Contraseña corta')
+    igual((await persona.post('/acceso/clave', { token, nueva: correo, confirmacion: correo })).estado, 422, 'Contraseña igual al correo')
+    igual((await persona.post('/acceso/clave', { token, nueva: 'Una clave larga 1', confirmacion: 'Otra clave larga 2' })).estado, 422, 'Confirmación distinta')
+    const ok = await persona.post('/acceso/clave', { token, nueva: 'Mi clave propia 2026', confirmacion: 'Mi clave propia 2026' })
+    igual(ok.estado, 200, 'Crear la contraseña')
+    igual((await persona.get('/sesion')).datos.debe_cambiar_clave, false, 'Entra sin cambio pendiente')
+    igual((await persona.get('/asignaciones')).estado, 200, 'Entra a su pantalla sin pasar por una temporal')
+    igual((await persona.post('/acceso/clave', { token, nueva: 'Otra clave propia 2026', confirmacion: 'Otra clave propia 2026' })).estado, 410, 'Segundo uso')
+    igual((await persona.get(`/acceso/validar?t=${token}`)).estado, 410, 'Validar un enlace ya usado')
+    igual((await anonimo().post('/login', { correo, clave: 'Mi clave propia 2026' })).estado, 200, 'Entra con su contraseña nueva')
+    const id = (await coord.get(`/usuarios?q=${correo}`)).datos.filas[0].id
+    igual((await coord.post(`/usuarios/${id}/invitacion`)).estado, 409, 'Reenviar a quien ya creó su contraseña')
+    // Reenviar deja sin efecto la invitación anterior.
+    const otra = await coord.post('/usuarios', { nombre: 'Segunda Invitada', correo: 'segunda@prueba.local', rol: 'auxiliar', invitar: true })
+    const idOtra = otra.datos.id
+    const [primero] = enlacesPara('segunda@prueba.local')
+    igual((await coord.post(`/usuarios/${idOtra}/invitacion`)).datos.correo_enviado, true, 'Reenvío')
+    const vigentes = enlacesPara('segunda@prueba.local')
+    igual(vigentes.length, 2, 'Salieron dos correos')
+    igual((await anonimo().get(`/acceso/validar?t=${primero}`)).estado, 410, 'La invitación anterior dejó de servir')
+    igual((await anonimo().get(`/acceso/validar?t=${vigentes[1]}`)).estado, 200, 'La nueva sirve')
+    igual((await docA.post('/usuarios', { nombre: 'X', correo: 'x@prueba.local', rol: 'docente', invitar: true })).estado, 403, 'Invitar sin permiso')
+    igual((await docA.post(`/usuarios/${idOtra}/invitacion`)).estado, 403, 'Reenviar sin permiso')
+    const b = await bitacoraDe(['invitacion_enviada', 'invitacion_reenviada', 'invitacion_usada'])
+    const todo = JSON.stringify(b)
+    afirmar(!todo.includes(token) && !todo.includes(vigentes[1]) && !todo.includes('Mi clave propia'), 'La bitácora guardó un token o una contraseña')
+  })
+
+  ca('CA-22', 'Restablecer contraseña: sin autorización no hay enlace; al autorizar sale uno, sirve una vez y cierra sesiones', async () => {
+    const respuestaReal = await anonimo().post('/olvide-clave', { correo: 'docente.b@prueba.local' })
+    const respuestaFalsa = await anonimo().post('/olvide-clave', { correo: 'nadie@prueba.local' })
+    igual([respuestaReal.estado, respuestaReal.datos], [respuestaFalsa.estado, respuestaFalsa.datos], 'La respuesta es la misma exista o no la cuenta')
+    igual(enlacesPara('docente.b@prueba.local').length + enlacesPara('nadie@prueba.local').length, 0, 'Sin autorización no sale ningún enlace')
+    const cola = (await coord.get('/solicitudes-acceso')).datos.filas
+    igual(cola.map((f) => f.correo), ['docente.b@prueba.local'], 'Solo la cuenta real tiene solicitud')
+    igual((await docA.get('/solicitudes-acceso')).estado, 403, 'Docente no ve solicitudes')
+    igual((await docA.put(`/solicitudes-acceso/${cola[0].id}/autorizar`)).estado, 403, 'Docente no autoriza')
+    igual((await coord.get('/inicio')).datos.solicitudes_acceso, 1, 'Contador en Inicio')
+    await anonimo().post('/olvide-clave', { correo: 'docente.b@prueba.local' })
+    igual((await coord.get('/solicitudes-acceso')).datos.filas.length, 1, 'Una solicitud abierta por cuenta')
+
+    // CA-19 dejó a Docente B con una contraseña temporal: se entra con ella para tener una sesión abierta.
+    const docBAbierta = await entrar('docente.b@prueba.local', ctx.docBRestablecido)
+    igual((await docBAbierta.get('/sesion')).estado, 200, 'Docente B tiene sesión abierta')
+    const auto = await coord.put(`/solicitudes-acceso/${cola[0].id}/autorizar`)
+    igual([auto.estado, auto.datos.correo_enviado], [200, true], 'Autorizar')
+    igual((await docBAbierta.get('/sesion')).estado, 401, 'Autorizar cierra sus sesiones')
+    igual((await coord.put(`/solicitudes-acceso/${cola[0].id}/autorizar`)).estado, 409, 'Autorizar dos veces')
+    const enlaces = enlacesPara('docente.b@prueba.local')
+    igual(enlaces.length, 1, 'Sale un solo enlace')
+    const persona = anonimo()
+    igual((await persona.post('/acceso/clave', { token: enlaces[0], nueva: 'Clave restablecida 2026', confirmacion: 'Clave restablecida 2026' })).estado, 200, 'Restablecer')
+    igual((await persona.post('/acceso/clave', { token: enlaces[0], nueva: 'Otra restablecida 2026', confirmacion: 'Otra restablecida 2026' })).estado, 410, 'Segundo uso')
+    igual((await anonimo().post('/login', { correo: 'docente.b@prueba.local', clave: ctx.docBRestablecido })).estado, 401, 'La contraseña anterior ya no entra')
+    igual((await anonimo().post('/login', { correo: 'docente.b@prueba.local', clave: 'Clave restablecida 2026' })).estado, 200, 'Entra con la nueva')
+
+    // Rechazar exige motivo y no manda nada.
+    await anonimo().post('/olvide-clave', { correo: 'docente.a@prueba.local' })
+    const sol = (await coord.get('/solicitudes-acceso')).datos.filas[0]
+    igual((await coord.put(`/solicitudes-acceso/${sol.id}/rechazar`, { motivo: ' ' })).estado, 422, 'Rechazar sin motivo')
+    igual((await coord.put(`/solicitudes-acceso/${sol.id}/rechazar`, { motivo: 'No reconozco la solicitud' })).estado, 200, 'Rechazar')
+    igual(enlacesPara('docente.a@prueba.local').length, 0, 'Rechazar no manda enlace')
+    igual((await coord.put(`/solicitudes-acceso/${sol.id}/rechazar`, { motivo: 'Otra vez' })).estado, 409, 'Rechazar dos veces')
+
+    // Máximo 3 solicitudes por correo cada 24 horas: la cuarta ya no crea nada y responde igual.
+    for (let i = 0; i < 3; i++) {
+      await anonimo().post('/olvide-clave', { correo: 'direccion@prueba.local' })
+      const s = (await coord.get('/solicitudes-acceso')).datos.filas.find((f) => f.correo === 'direccion@prueba.local')
+      afirmar(s, `Falta la solicitud ${i + 1} de Dirección`)
+      await coord.put(`/solicitudes-acceso/${s.id}/rechazar`, { motivo: 'Prueba del límite' })
+    }
+    const cuarta = await anonimo().post('/olvide-clave', { correo: 'direccion@prueba.local' })
+    igual([cuarta.estado, cuarta.datos], [respuestaReal.estado, respuestaReal.datos], 'La cuarta responde igual')
+    afirmar(!(await coord.get('/solicitudes-acceso')).datos.filas.some((f) => f.correo === 'direccion@prueba.local'), 'La cuarta solicitud creó una fila')
+
+    // Enlace por iniciativa de Coordinación.
+    const idAux = (await aux.get('/sesion')).datos.id
+    igual((await coord.post(`/usuarios/${idAux}/enlace-restablecer`)).datos.correo_enviado, true, 'Enlace por iniciativa propia')
+    igual(enlacesPara('auxiliar@prueba.local').length, 1, 'Salió el enlace')
+    igual((await docA.post(`/usuarios/${idAux}/enlace-restablecer`)).estado, 403, 'Sin permiso')
+    const b = await bitacoraDe(['solicitud_creada', 'solicitud_autorizada', 'solicitud_rechazada', 'restablecer_enviado', 'restablecimiento_usado'])
+    const todo = JSON.stringify(b)
+    afirmar(!todo.includes(enlaces[0]) && !todo.includes('Clave restablecida'), 'La bitácora guardó un token o una contraseña')
+  })
+}
 
 let fallas = 0
 for (const c of criterios) {

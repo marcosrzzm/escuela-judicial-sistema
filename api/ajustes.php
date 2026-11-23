@@ -51,6 +51,11 @@ function cargar_config(): array
         'db_usuario' => $valores['DB_USUARIO'] ?? '',
         'db_contrasena' => $valores['DB_CONTRASENA'] ?? '',
         'entorno' => $valores['ENTORNO'] ?? 'produccion',
+        // Correo por Resend (especificación, 10.6). Sin llave no se envía; solo en local el correo se guarda en seguridad/.
+        'resend_llave' => $valores['RESEND_API_KEY'] ?? '',
+        'correo_remitente' => $valores['CORREO_REMITENTE'] ?? '',
+        'sitio_url' => rtrim($valores['SITIO_URL'] ?? '', '/'),
+        'web_puerto' => (int) ($valores['WEB_PUERTO'] ?? 5173),
         'cookie' => 'ej_sesion',
         'horas_sesion' => 8,
         // Supuesto por confirmar con la Escuela (especificación, sección 8).

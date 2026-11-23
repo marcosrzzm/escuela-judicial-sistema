@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CampoTexto } from '@/componentes/CampoFormulario'
 import { toast } from 'sonner'
+import { pedirRestablecer } from '@/lib/api'
 import { avisar } from '@/lib/avisos'
 import { rutaInicial, rutaPermitida } from '@/lib/navegacion'
 import { useDatos } from '@/lib/datos'
@@ -29,6 +30,7 @@ export function Entrar() {
   const [clave, setClave] = useState('')
   const [ver, setVer] = useState(false)
   const [entrando, setEntrando] = useState(false)
+  const [olvide, setOlvide] = useState<'no' | 'escribiendo' | 'enviada'>('no')
   const ajustes = useDatos<{ datos_ficticios: boolean }>('/ajustes-publicos')
 
   // Mientras se resuelve si ya hay sesión no se decide nada: sin este freno el formulario
@@ -53,6 +55,50 @@ export function Entrar() {
     if (r.ok) toast.dismiss()
     else avisar.error(r.error)
   }
+
+  async function pedirClave(evento: FormEvent) {
+    evento.preventDefault()
+    setEntrando(true)
+    const r = await pedirRestablecer(correo.trim())
+    setEntrando(false)
+    if (r.ok) setOlvide('enviada')
+    else avisar.error(r.error)
+  }
+
+  if (olvide !== 'no')
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-paper-2 p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Restablecer contraseña</CardTitle>
+            <CardDescription>
+              {olvide === 'enviada'
+                ? 'Si el correo tiene una cuenta, Coordinación ya recibió tu solicitud. Cuando la autorice te llega un enlace por correo.'
+                : 'Escribe tu correo. Coordinación revisa la solicitud y, si la autoriza, te manda un enlace.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {olvide === 'escribiendo' ? (
+              <form className="flex flex-col gap-4" onSubmit={pedirClave}>
+                <CampoTexto
+                  etiqueta="Correo"
+                  tipo="email"
+                  obligatorio
+                  valor={correo}
+                  alCambiar={setCorreo}
+                />
+                <Button type="submit" disabled={entrando || !correo}>
+                  {entrando ? 'Enviando…' : 'Pedir restablecimiento'}
+                </Button>
+              </form>
+            ) : null}
+            <Button type="button" variant="ghost" className="w-fit" onClick={() => setOlvide('no')}>
+              Volver a Entrar
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    )
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-paper-2 p-6">
@@ -112,6 +158,14 @@ export function Entrar() {
             </div>
             <Button type="submit" disabled={entrando || !correo || !clave}>
               {entrando ? 'Entrando…' : 'Entrar'}
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto self-start p-0"
+              onClick={() => setOlvide('escribiendo')}
+            >
+              ¿Olvidaste tu contraseña?
             </Button>
           </form>
 

@@ -26,6 +26,15 @@ const ACCIONES: Record<string, string> = {
   recibir: 'Recepción',
   cargar: 'Carga',
   linea_base: 'Línea base',
+  invitacion_enviada: 'Invitación enviada',
+  invitacion_reenviada: 'Invitación reenviada',
+  invitacion_usada: 'Invitación usada',
+  correo_no_enviado: 'Correo que no salió',
+  solicitud_creada: 'Solicitud de contraseña',
+  solicitud_autorizada: 'Solicitud autorizada',
+  solicitud_rechazada: 'Solicitud rechazada',
+  restablecer_enviado: 'Enlace de contraseña enviado',
+  restablecimiento_usado: 'Contraseña restablecida con enlace',
 }
 
 const ENTIDADES: Record<string, string> = {
@@ -39,6 +48,7 @@ const ENTIDADES: Record<string, string> = {
   cierre: 'Cierre',
   lote_entrega: 'Lote',
   metrica_caso: 'Métrica',
+  solicitud_acceso: 'Solicitud de contraseña',
 }
 
 const sinGuiones = (t: string) =>
